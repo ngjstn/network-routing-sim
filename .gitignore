@@ -1,0 +1,5 @@
+*.out
+*.o
+
+output.txt
+/.vscode
