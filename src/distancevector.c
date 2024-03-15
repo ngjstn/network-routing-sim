@@ -9,7 +9,7 @@ typedef struct table_entry
     int next_hop; 
     int path_cost; 
     int ttl; 
-    table_entry* next; 
+    struct table_entry* next; 
 } table_entry;
 
 typedef struct routing_table 
@@ -18,21 +18,21 @@ typedef struct routing_table
     int num_entries; 
 } routing_table;
 
+typedef struct router
+{
+    int id; 
+    routing_table* table; 
+    struct neighbour_entry* neighbour_list;    // used for traversing the graph
+    struct router* next;                       // used for linked list of ALL routers; doesn't represent neighbours
+} router;
+
 typedef struct neighbour_entry
 {
     int id; 
     int path_cost;
     router* router_neighbour;
-    neighbour_entry* next;
+    struct neighbour_entry* next;
 } neighbour_entry;
-
-typedef struct router
-{
-    int id; 
-    routing_table* table; 
-    neighbour_entry* neighbour_list;    // used for traversing the graph
-    router* next;                       // used for linked list of ALL routers; doesn't represent neighbours
-} router;
 
 
 static void set_neighbour_link(router* router1, router* router2, int id1, int id2, int path_cost)
@@ -40,8 +40,8 @@ static void set_neighbour_link(router* router1, router* router2, int id1, int id
     // set the routers to be neighbours of each other 
     neighbour_entry* neighbour_id1 = (neighbour_entry*)malloc(sizeof(neighbour_entry));
     neighbour_entry* neighbour_id2 = (neighbour_entry*)malloc(sizeof(neighbour_entry));
-    neighbour_id1->id = atoi(id2);
-    neighbour_id2->id = atoi(id1);
+    neighbour_id1->id = id2;
+    neighbour_id2->id = id1;
     neighbour_id1->path_cost = path_cost;
     neighbour_id2->path_cost = path_cost;
     neighbour_id1->router_neighbour = router2;
@@ -116,7 +116,7 @@ void init_routers(router* router_list, char* topologyFile)
             // create a router for id1 and set it to router_list (head of linked list)
             router* router1 = create_router(atoi(id1)); 
             router* router2 = create_router(atoi(id2));
-            set_neighbour_link(router1, router2, id1, id2, atoi(path_cost));
+            set_neighbour_link(router1, router2, atoi(id1), atoi(id2), atoi(path_cost));
 
             // set router1 as the head of the list; place router2 after router1 (end of linked list)
             router_list = router1;
@@ -168,12 +168,12 @@ void init_routers(router* router_list, char* topologyFile)
             }
             
             // routers should be found or created by this point
-            if (found1 == NULL || found2 == NULL)
+            if (router1 == NULL || router2 == NULL)
             {
                 fprintf(stderr, "Error: Unable to initialize topology graph\n");
                 exit(1);
             }
-            set_neighbour_link(router1, router2, id1, id2, atoi(path_cost));
+            set_neighbour_link(router1, router2, atoi(id1), atoi(id2), atoi(path_cost));
         }
     }
 }

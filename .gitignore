@@ -1,5 +1,7 @@
 *.out
 *.o
+distancevector
+linkstate
 
 output.txt
 /.vscode
