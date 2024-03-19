@@ -2,6 +2,9 @@
 *.o
 distancevector
 linkstate
+dvr 
+lsr 
+output.txt
 
 output.txt
 /.vscode

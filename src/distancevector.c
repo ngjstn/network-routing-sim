@@ -43,6 +43,40 @@ void write_output(char* outputFile, char* message)
     fclose(file);
 }
 
+// updates the output file with ALL the routing tables in the routing_list 
+void write_tables_output(router* routing_list, char* outputFile)
+{
+    FILE* file = fopen(outputFile, "w+");
+    if (file == NULL)
+    {
+        fprintf(stderr, "Error: File %s not found\n", outputFile);
+        exit(1);
+    }
+
+    router* curr_router = routing_list;
+    while (curr_router != NULL)
+    {
+        if (curr_router->neighbour_list == NULL)
+        {
+            fprintf(stdout, "Warning: Router %d has no neighbours\n", curr_router->id);
+        }
+
+        // iterate through all the routes in the table
+        table_entry* tab_entry = curr_router->table_head; 
+        while (tab_entry != NULL)
+        {
+            char buffer[100]; 
+            fprintf(stdout, "%d %d %d\n", tab_entry->dest, tab_entry->next_hop, tab_entry->path_cost);
+            sprintf(buffer, "%d %d %d\n", tab_entry->dest, tab_entry->next_hop, tab_entry->path_cost);
+            fwrite(buffer, 1, strlen(buffer), file);
+            tab_entry = tab_entry->next;
+        }
+        fwrite("\n", 1, 1, file);
+        fprintf(stdout, "\n");
+        curr_router = curr_router->next;
+    }
+    fclose(file);
+}
 
 void distance_vector(char* topologyFile, char* messageFile, char* changesFile, char* outputFile)
 {
@@ -52,28 +86,18 @@ void distance_vector(char* topologyFile, char* messageFile, char* changesFile, c
 
     // list of all routers
     router* router_list = init_routers(topologyFile);
-    
-    // print out router linked list
-    fprintf(stdout, "\n\nINITIAL ROUTER LIST TOPOLOGY\n");
     router* current = router_list;
+    current = router_list; 
     while (current != NULL)
     {
         fprintf(stdout, "router id: %d\n", current->id);
-
-        // print out neighbour list 
-        neighbour_entry* neighbour = current->neighbour_list;
-        while (neighbour != NULL)
-        {
-            fprintf(stdout, "---> neighbour id: %d, path_cost: %d\n", neighbour->id, neighbour->path_cost);
-            neighbour = neighbour->next;
-        }
+        djikstras(router_list, current);
         current = current->next;
     }
 
-    fprintf(stdout, "router_list: %p\n\n", router_list);
-    djikstras(router_list, get_router(1, router_list));
+    fprintf(stdout, "\nWRITING TABLES TO TO %s\n\n", outputFile); 
+    write_tables_output(router_list, outputFile);
 }
-
 
 int main(int argc, char** argv)
 {
@@ -97,6 +121,5 @@ int main(int argc, char** argv)
     }
 
     distance_vector(topologyFile, messageFile, changesFile, outputFile);
-
     return EXIT_SUCCESS; 
 }

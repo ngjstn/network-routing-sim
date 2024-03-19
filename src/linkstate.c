@@ -9,6 +9,24 @@ void link_state(char* topologyFile, char* messageFile, char* changesFile, char* 
     (void)messageFile;
     (void)changesFile;
     (void)outputFile;
+
+    // will need dijkstra's algorithm to find the shortest path
+    // will need to read the topology file and create a graph
+
+    // each router can only store its next hop
+    // all routers must agree on topology
+
+    // if there are ties, break them the same way
+
+    // flood information
+    // when local info changes, send to all neighbors
+    // if you receive a packet from neighbour, send to all other neighbours
+    //      unless you've already seen it
+    //      for the most part this is related to reliability and drops
+    //      idk if we need to worry about it
+
+    // 
+
 }
 
 

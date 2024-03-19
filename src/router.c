@@ -119,6 +119,13 @@ void djikstras(router* router_list, router* src)
         exit(1);
     }
 
+    int* prev = (int*)malloc(num_routers * sizeof(int));
+    if (prev == NULL)
+    {
+        fprintf(stderr, "Error: Unable to allocate memory for prev array\n");
+        exit(1);
+    }
+
     fprintf(stdout, "DJIKSTRAS on src router %d\n", src->id);
 
     // initialize min heap
@@ -134,6 +141,7 @@ void djikstras(router* router_list, router* src)
 
         if (current->id == src->id)
         {
+            prev[i] = src->id; 
             dist[i] = 0; 
             heap->array[i] = create_min_heap_node(current->id, dist[i]);
             // fprintf(stdout, "heap->array[0]: %d\n", heap->array[0]->dist);
@@ -151,16 +159,16 @@ void djikstras(router* router_list, router* src)
         }
 
         i++; 
-        fprintf(stdout, "router id: %d assigned dist_idx: %d\n", current->id, current->dist_idx);
+        // fprintf(stdout, "router id: %d assigned dist_idx: %d\n", current->id, current->dist_idx);
         current = current->next;
     }
 
     // print out heap array 
-    fprintf(stdout, "heap array: \n");
-    for (int i = 0; i < num_routers; i++)
-    {
-        fprintf(stdout, "router id: %d, dist: %d\n", heap->array[i]->v, heap->array[i]->dist);
-    }
+    // fprintf(stdout, "heap array: \n");
+    // for (int i = 0; i < num_routers; i++)
+    // {
+    //     fprintf(stdout, "router id: %d, dist: %d\n", heap->array[i]->v, heap->array[i]->dist);
+    // }
 
     // set distance to source as 0 and update heap
     // heap->array[num_routers-1] = create_min_heap_node(src->id, dist[num_routers-1]);
@@ -170,13 +178,13 @@ void djikstras(router* router_list, router* src)
     // decrease_key(heap, num_routers-1, dist[num_routers-1]);
     heap->size = num_routers;
 
-    fprintf(stdout, "heap size: %d\n", heap->size);
+    // fprintf(stdout, "heap size: %d\n", heap->size);
 
     // heap contains all routers with undetermined shortest distance from src
     while (!is_empty(heap))
     {
         min_heap_node* heap_node = extract_min(heap, router_list);
-        fprintf(stdout, "\nextracted min: %d\n", heap_node->v);
+        // fprintf(stdout, "\nextracted min: %d\n", heap_node->v);
         int extracted = heap_node->v;
         int ext_dist = get_router(extracted, router_list)->dist_idx;
 
@@ -184,30 +192,39 @@ void djikstras(router* router_list, router* src)
         neighbour_entry* neighbour = get_router(extracted, router_list)->neighbour_list;
         while (neighbour != NULL)
         {
-            fprintf(stdout, "\nneighbour of router %d: %d\n", heap_node->v, neighbour->id);
+            // fprintf(stdout, "\nneighbour of router %d: %d\n", heap_node->v, neighbour->id);
             int neighbour_dist_idx = neighbour->router_neighbour->dist_idx; 
-            fprintf(stdout, "dist_idx of neighbour: %d\n", neighbour_dist_idx);
-            fprintf(stdout, "dist[ext_dist]: %d, neighbour->path_cost: %d, dist[neighbour_dist_idx]: %d\n", dist[ext_dist], neighbour->path_cost, dist[neighbour_dist_idx]);
-            fprintf(stdout, "is_in_heap: %d\n", is_in_heap(heap, neighbour_dist_idx));
+            // fprintf(stdout, "dist_idx of neighbour: %d\n", neighbour_dist_idx);
+            // fprintf(stdout, "dist[ext_dist]: %d, neighbour->path_cost: %d, dist[neighbour_dist_idx]: %d\n", dist[ext_dist], neighbour->path_cost, dist[neighbour_dist_idx]);
+            // fprintf(stdout, "is_in_heap: %d\n", is_in_heap(heap, neighbour_dist_idx));
 
             if (!is_in_heap(heap, neighbour_dist_idx) && dist[ext_dist] != INT_MAX && (neighbour->path_cost + dist[ext_dist]) < dist[neighbour_dist_idx])
             {
                 dist[neighbour_dist_idx] = dist[ext_dist] + neighbour->path_cost; 
-                fprintf(stdout, "updated dist[%d]: %d\n", neighbour_dist_idx, dist[neighbour_dist_idx]);
+                prev[neighbour_dist_idx] = heap_node->v;
+                // fprintf(stdout, "updated dist[%d]: %d\n", neighbour_dist_idx, dist[neighbour_dist_idx]);
                 decrease_key(heap, neighbour_dist_idx, dist[neighbour_dist_idx], router_list);
             }
             neighbour = neighbour->next;
         }
     }
 
-    fprintf(stdout, "Router \t\t Distance from Source\n"); 
+    fprintf(stdout, "ROUTER %d TABLE\n", src->id);
+    fprintf(stdout, "Dest \t\t Next \t\t Distance from Source\n"); 
     current = router_list;
     while (current != NULL)
     {
-        fprintf(stdout, "%d \t\t %d\n", current->id, dist[current->dist_idx]);
+        router* temp = current;
+        while (prev[temp->dist_idx] != src->id)
+        {
+            temp = get_router(prev[temp->dist_idx], router_list); 
+        }
+        fprintf(stdout, "%d \t\t %d \t\t %d\n", current->id, temp->id, dist[current->dist_idx]);
+
+        // add route to routing table 
+        add_table_entry(src, current->id, temp->id, dist[current->dist_idx]);
         current = current->next;
     }
-
 }
 
 
@@ -354,6 +371,46 @@ router* create_router(int id)
     return new_router;
 }
 
+// adds router to routing list in ascending order of id
+router* add_router(router* router_list, router* new_router)
+{
+    router* current = router_list;
+    router* prev = NULL;
+
+    // empty list
+    if (current == NULL)
+    {
+        router_list = new_router;
+        return router_list;
+    }
+
+    // insert at the front of the list
+    if (new_router->id < current->id)
+    {
+        new_router->next = current;
+        router_list = new_router;
+        return router_list;
+    }
+
+    // insert in the middle or end of the list
+    while (current != NULL)
+    {
+        if (new_router->id < current->id)
+        {
+            prev->next = new_router;
+            new_router->next = current;
+            return router_list;
+        }
+        prev = current;
+        current = current->next;
+    }
+
+    // insert at the end of the list
+    prev->next = new_router;
+    return router_list; 
+}
+
+
 // initializes the router linked list with the routers and their neighbours
 router* init_routers(char* topologyFile)
 {
@@ -389,8 +446,10 @@ router* init_routers(char* topologyFile)
             set_neighbour_link(router1, router2, atoi(id1), atoi(id2), atoi(path_cost));
 
             // set router1 as the head of the list; place router2 after router1 (end of linked list)
-            router2->next = router1; 
-            router_list = router2;
+            // router2->next = router1; 
+            // router_list = router2;
+            router_list = add_router(router_list, router1);
+            router_list = add_router(router_list, router2);
         }
         else 
         {
@@ -427,15 +486,17 @@ router* init_routers(char* topologyFile)
             if (!found1)
             {
                 router1 = create_router(atoi(id1));
-                router1->next = current;
-                router_list = router1;
+                // router1->next = current;
+                // router_list = router1;
+                router_list = add_router(router_list, router1);
                 fprintf(stdout, "created router %p, id: %d\n", router1, router1->id);
             }
             if (!found2)
             {
                 router2 = create_router(atoi(id2));
-                router2->next = current;
-                router_list = router2;
+                // router2->next = current;
+                // router_list = router2;
+                router_list = add_router(router_list, router2);
                 fprintf(stdout, "created router %p, id: %d\n", router2, router2->id);
             }
             
@@ -453,23 +514,24 @@ router* init_routers(char* topologyFile)
     }
     fclose(file);
 
-    // // print out router linked list
-    // fprintf(stdout, "\n\nINITIAL ROUTER LIST TOPOLOGY\n");
-    // router* current = router_list;
-    // while (current != NULL)
-    // {
-    //     fprintf(stdout, "router id: %d\n", current->id);
-
-    //     // print out neighbour list 
-    //     neighbour_entry* neighbour = current->neighbour_list;
-    //     while (neighbour != NULL)
-    //     {
-    //         fprintf(stdout, "---> neighbour id: %d, path_cost: %d\n", neighbour->id, neighbour->path_cost);
-    //         neighbour = neighbour->next;
-    //     }
-    //     current = current->next;
-    // }
-
+    // print out router linked list
+    fprintf(stdout, "\n\nINITIAL ROUTER LIST TOPOLOGY\n");
     fprintf(stdout, "router_list: %p\n", router_list);
+    router* current = router_list;
+    while (current != NULL)
+    {
+        fprintf(stdout, "router id: %d\n", current->id);
+
+        // print out neighbour list 
+        neighbour_entry* neighbour = current->neighbour_list;
+        while (neighbour != NULL)
+        {
+            fprintf(stdout, "---> neighbour id: %d, path_cost: %d\n", neighbour->id, neighbour->path_cost);
+            neighbour = neighbour->next;
+        }
+        current = current->next;
+    }
+
+    // fprintf(stdout, "router_list: %p\n", router_list);
     return router_list;
 }

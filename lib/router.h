@@ -46,14 +46,14 @@ void heapify(min_heap* minHeap, int idx, router* router_list);
 min_heap_node* extract_min(min_heap* minHeap, router* router_list); 
 void decrease_key(min_heap* minHeap, int v, int dist, router* router_list);
 
-
+// router/graph functions 
 void djikstras(router* router_list, router* src);
-// int find_shortest_path(router* router_list, router* src, int dest);
 table_entry* create_table_entry(int dest, int next_hop, int path_cost); 
 void add_table_entry(router* src_router, int dest, int next_hop, int path_cost); 
 neighbour_entry* create_neighbour_entry(router* router, int id, int path_cost); 
 void set_neighbour_link(router* router1, router* router2, int id1, int id2, int path_cost); 
 router* get_router(int id, router* router_list);
+router* add_router(router* router_list, router* new_router);
 router* create_router(int id);
 router* init_routers(char* topologyFile);
 
