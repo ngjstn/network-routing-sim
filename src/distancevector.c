@@ -51,8 +51,28 @@ void distance_vector(char* topologyFile, char* messageFile, char* changesFile, c
     (void)outputFile;
 
     // list of all routers
-    router* router_list = NULL; 
-    init_routers(router_list, topologyFile);
+    router* router_list = init_routers(topologyFile);
+    
+    // print out router linked list
+    fprintf(stdout, "\n\nINITIAL ROUTER LIST TOPOLOGY\n");
+    router* current = router_list;
+    while (current != NULL)
+    {
+        fprintf(stdout, "router id: %d\n", current->id);
+
+        // print out neighbour list 
+        neighbour_entry* neighbour = current->neighbour_list;
+        while (neighbour != NULL)
+        {
+            fprintf(stdout, "---> neighbour id: %d, path_cost: %d\n", neighbour->id, neighbour->path_cost);
+            neighbour = neighbour->next;
+        }
+        current = current->next;
+    }
+
+    fprintf(stdout, "router_list: %p\n\n", router_list);
+    djikstras(router_list, get_router(1, router_list));
+    // find_shortest_path(router_list, get_router(1, router_list), get_router(3, router_list)->id);
 }
 
 

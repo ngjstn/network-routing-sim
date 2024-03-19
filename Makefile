@@ -3,19 +3,22 @@ LINKLIBS = -lpthread
 .PHONY: all clean
 
 
-all: distancevector linkstate
+all: dvr lsr
 
-distancevector: obj/distancevector.o obj/router.o
+dvr: obj/distancevector.o obj/router.o obj/minHeap.o
 	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
 
-linkstate: obj/linkstate.o obj/router.o
+lsr: obj/linkstate.o 
 	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
 
-router: obj/router.o
+router: obj/router.o obj/minHeap.o
+	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
+
+minHeap: obj/minHeap.obj.o
 	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
 
 clean :
-	$(RM) obj/*.o distancevector linkstate router
+	$(RM) obj/*.o distancevector linkstate router minHeap
 
 
 obj/%.o: src/%.c
