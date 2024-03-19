@@ -41,6 +41,12 @@ typedef struct neighbour_entry
     struct neighbour_entry* next;
 } neighbour_entry;
 
+// modified heap functions
+void heapify(min_heap* minHeap, int idx, router* router_list); 
+min_heap_node* extract_min(min_heap* minHeap, router* router_list); 
+void decrease_key(min_heap* minHeap, int v, int dist, router* router_list);
+
+
 void djikstras(router* router_list, router* src);
 // int find_shortest_path(router* router_list, router* src, int dest);
 table_entry* create_table_entry(int dest, int next_hop, int path_cost); 

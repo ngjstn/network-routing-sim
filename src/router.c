@@ -6,67 +6,99 @@
 #include "../lib/router.h"
 #include "../lib/minHeap.h"
 
-// bfs to find shortest paths from src to dest 
-// int find_shortest_path(router* router_list, router* src, int dest)
-// {
-//     if (src == NULL)
-//     {
-//         fprintf(stderr, "Error: Source router is NULL\n");
-//         exit(1);
-//     }
+void heapify(min_heap* minHeap, int idx, router* router_list)
+{
+    int smallest, left, right;
+    smallest = idx;
+    left = 2 * idx + 1;
+    right = 2 * idx + 2;
+ 
+    if (left < minHeap->size &&
+        minHeap->array[left]->dist < 
+         minHeap->array[smallest]->dist )
+      smallest = left;
+ 
+    if (right < minHeap->size &&
+        minHeap->array[right]->dist <
+         minHeap->array[smallest]->dist )
+      smallest = right;
+ 
+    if (smallest != idx)
+    {
+        // The nodes to be swapped in min heap
+        min_heap_node *smallestNode = 
+             minHeap->array[smallest];
+        min_heap_node *idxNode = 
+                 minHeap->array[idx];
+ 
+        // Swap positions
+        minHeap->pos[get_router(smallestNode->v, router_list)->dist_idx] = idx;
+        minHeap->pos[get_router(idxNode->v, router_list)->dist_idx] = smallest;
+ 
+        // Swap nodes
+        swap_heap_node(&minHeap->array[smallest], 
+                         &minHeap->array[idx]);
+ 
+        heapify(minHeap, smallest, router_list);
+    }
+}
 
-//     if (router_list == NULL)
-//     {
-//         fprintf(stderr, "Error: Router list is empty\n");
-//         exit(1);
-//     }
+min_heap_node* extract_min(min_heap* minHeap, router* router_list)
+{
+    if (is_empty(minHeap))
+        return NULL;
+ 
+    // Store the root node
+    min_heap_node* root = 
+                   minHeap->array[0];
+ 
+    // Replace root node with last node
+    min_heap_node* lastNode = 
+         minHeap->array[minHeap->size - 1];
+    minHeap->array[0] = lastNode;
+ 
+    // Update position of last node
+    minHeap->pos[get_router(root->v, router_list)->dist_idx] = minHeap->size-1;
+    minHeap->pos[get_router(lastNode->v, router_list)->dist_idx] = 0;
+ 
+    // Reduce heap size and heapify root
+    --minHeap->size;
+    heapify(minHeap, 0, router_list);
+ 
+    return root;
+}
 
-//     int queue[100]; 
-//     int visited[100];
-//     int front = 0;
-//     int rear = 0; 
+void decrease_key(min_heap* minHeap, int v, int dist, router* router_list)
+{
+    // Get the index of v in  heap array
+    int i = minHeap->pos[v];
+    // fprintf(stdout, "i: %d\n", i);
+    // fprintf(stdout, "v: %d\n", v);
 
-//     // initialize visited array to 0
-//     for (int i = 0; i < 100; i++)
-//     {
-//         visited[i] = 0;
-//     }
+    // Get the node and update its dist value
+    minHeap->array[i]->dist = dist;
+ 
+    // Travel up while the complete 
+    // tree is not heapified.
+    // This is a O(Logn) loop
+    while (i && minHeap->array[i]->dist < 
+           minHeap->array[(i - 1) / 2]->dist)
+    {
+        // fprintf(stdout, "swap 1: %d\n", minHeap->array[i]->v);
+        // fprintf(stdout, "swap 2: %d\n", minHeap->array[(i-1)/2]->v);
+        // Swap this node with its parent
+        minHeap->pos[get_router(minHeap->array[i]->v, router_list)->dist_idx] = (i-1)/2;
+        minHeap->pos[get_router(minHeap->array[(i-1)/2]->v, router_list)->dist_idx] = i;
+        swap_heap_node(&minHeap->array[i],  
+                 &minHeap->array[(i - 1) / 2]);
 
-//     // add src to queue and mark as visited
-//     visited[src->id] = 1;    
-//     queue[rear++] = src->id;
+        // fprintf(stdout, "swap 1: %d\n", minHeap->array[i]->v);
+        // fprintf(stdout, "swap 2: %d\n", minHeap->array[(i-1)/2]->v);
 
-//     while (front != rear)
-//     {
-//         // dequeue a router
-//         int current = queue[front++]; 
-//         fprintf(stdout, "dequeue: %d\n", current);
-
-//         router* current_router = get_router(current, router_list);
-//         fprintf(stdout, "current_router: %p, id: %d\n", current_router, current_router->id);
-
-//         neighbour_entry* neighbour = current_router->neighbour_list;
-//         while (neighbour != NULL)
-//         {   
-//             // found destination
-//             if (neighbour->id == dest)
-//             {
-//                 // do stuff to reverse traverse the path
-//                 fprintf(stdout, "found destination: %d\n", dest);
-//                 return neighbour->path_cost;
-//             }
-//             // enqueue neighbour if not visited
-//             if (!visited[neighbour->id])
-//             {
-//                 visited[neighbour->id] = 1;
-//                 queue[rear++] = neighbour->id;
-//                 fprintf(stdout, "enqueue: %d\n", neighbour->id);
-//             }
-//             neighbour = neighbour->next;
-//         }
-//     }
-//     return -1;
-// }
+        // move to parent index
+        i = (i - 1) / 2;
+    }
+}
 
 void djikstras(router* router_list, router* src)
 {
@@ -97,21 +129,45 @@ void djikstras(router* router_list, router* src)
     while (current != NULL)
     {
         current->dist_idx = i;
-        dist[i] = INT_MAX;
-        heap->array[i] = create_min_heap_node(current->id, dist[i]);
         current->pos_idx = i;
         heap->pos[i] = i;
+
+        if (current->id == src->id)
+        {
+            dist[i] = 0; 
+            heap->array[i] = create_min_heap_node(current->id, dist[i]);
+            // fprintf(stdout, "heap->array[0]: %d\n", heap->array[0]->dist);
+            // fprintf(stdout, "heap->array[%d]: %d\n", i, heap->array[i]->dist);
+            // fprintf(stdout, "router index 0: %d\n", get_router(heap->array[0]->v, router_list)->id);
+            decrease_key(heap, i, dist[i], router_list);
+            // fprintf(stdout, "heap->array[0]: %d\n", heap->array[0]->dist);
+            // fprintf(stdout, "heap->array[%d]: %d\n", i, heap->array[i]->dist);
+            // fprintf(stdout, "router index 0: %d\n", get_router(heap->array[0]->v, router_list)->id);
+        }
+        else 
+        {
+            dist[i] = INT_MAX;
+            heap->array[i] = create_min_heap_node(current->id, dist[i]);
+        }
+
         i++; 
         fprintf(stdout, "router id: %d assigned dist_idx: %d\n", current->id, current->dist_idx);
         current = current->next;
     }
 
+    // print out heap array 
+    fprintf(stdout, "heap array: \n");
+    for (int i = 0; i < num_routers; i++)
+    {
+        fprintf(stdout, "router id: %d, dist: %d\n", heap->array[i]->v, heap->array[i]->dist);
+    }
+
     // set distance to source as 0 and update heap
-    heap->array[num_routers-1] = create_min_heap_node(src->id, dist[num_routers-1]);
-    heap->pos[num_routers-1] = num_routers-1;
-    get_router(src->id, router_list)->dist_idx = num_routers-1;
-    dist[num_routers-1] = 0;
-    decrease_key(heap, num_routers-1, dist[num_routers-1]);
+    // heap->array[num_routers-1] = create_min_heap_node(src->id, dist[num_routers-1]);
+    // heap->pos[num_routers-1] = num_routers-1;
+    // get_router(src->id, router_list)->dist_idx = num_routers-1;
+    // dist[num_routers-1] = 0;
+    // decrease_key(heap, num_routers-1, dist[num_routers-1]);
     heap->size = num_routers;
 
     fprintf(stdout, "heap size: %d\n", heap->size);
@@ -119,7 +175,7 @@ void djikstras(router* router_list, router* src)
     // heap contains all routers with undetermined shortest distance from src
     while (!is_empty(heap))
     {
-        min_heap_node* heap_node = extract_min(heap);
+        min_heap_node* heap_node = extract_min(heap, router_list);
         fprintf(stdout, "\nextracted min: %d\n", heap_node->v);
         int extracted = heap_node->v;
         int ext_dist = get_router(extracted, router_list)->dist_idx;
@@ -131,53 +187,20 @@ void djikstras(router* router_list, router* src)
             fprintf(stdout, "\nneighbour of router %d: %d\n", heap_node->v, neighbour->id);
             int neighbour_dist_idx = neighbour->router_neighbour->dist_idx; 
             fprintf(stdout, "dist_idx of neighbour: %d\n", neighbour_dist_idx);
-            fprintf(stdout, "dist[ext_dist]: %d, neighbour->path_cost: %d, dist[v]: %d\n", dist[ext_dist], neighbour->path_cost, dist[neighbour_dist_idx]);
+            fprintf(stdout, "dist[ext_dist]: %d, neighbour->path_cost: %d, dist[neighbour_dist_idx]: %d\n", dist[ext_dist], neighbour->path_cost, dist[neighbour_dist_idx]);
             fprintf(stdout, "is_in_heap: %d\n", is_in_heap(heap, neighbour_dist_idx));
 
             if (!is_in_heap(heap, neighbour_dist_idx) && dist[ext_dist] != INT_MAX && (neighbour->path_cost + dist[ext_dist]) < dist[neighbour_dist_idx])
             {
                 dist[neighbour_dist_idx] = dist[ext_dist] + neighbour->path_cost; 
                 fprintf(stdout, "updated dist[%d]: %d\n", neighbour_dist_idx, dist[neighbour_dist_idx]);
-                decrease_key(heap, neighbour_dist_idx, dist[neighbour_dist_idx]);
+                decrease_key(heap, neighbour_dist_idx, dist[neighbour_dist_idx], router_list);
             }
             neighbour = neighbour->next;
         }
     }
 
-    // // initialize heap nodes and distance array values
-    // for (int i = 0; i < num_routers; i++)
-    // {
-    //     dist[i] = INT_MAX; 
-    //     heap->array[i] = create_min_heap_node(i, dist[i]);
-    //     heap->pos[i] = i;
-    // }
-
-    // // set distance to source as 0 and update heap
-    // heap->array[src->id] = create_min_heap_node(src->id, dist[src->id]);
-    // heap->pos[src->id] = src->id;
-    // dist[src->id] = 0;
-    // decrease_key(heap, src->id, dist[src->id]);
-    // heap->size = num_routers;
-
-    // while (!is_empty(heap))
-    // {
-    //     min_heap_node* heap_node = extract_min(heap);
-    //     int extracted = heap_node->v;
-
-    //     // traverse all adjacent routers of u
-    //     neighbour_entry* neighbour = get_router(extracted, router_list)->neighbour_list;
-    //     while (neighbour != NULL)
-    //     {
-    //         int v = extracted; 
-    //         if (!is_in_heap(heap, v) && dist[extracted] != INT_MAX && (neighbour->path_cost + dist[extracted]) < dist[neighbour->id])
-    //         {
-    //             dist[neighbour->id] = dist[extracted] + neighbour->path_cost; 
-    //             decrease_key(heap, neighbour->id, dist[neighbour->id]);
-    //         }
-    //     }
-    // }
-
-    fprintf(stdout, "Vertex \t\t Distance from Source\n"); 
+    fprintf(stdout, "Router \t\t Distance from Source\n"); 
     current = router_list;
     while (current != NULL)
     {
@@ -185,7 +208,6 @@ void djikstras(router* router_list, router* src)
         current = current->next;
     }
 
-    // printArr(dist, num_routers);
 }
 
 

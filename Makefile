@@ -14,7 +14,7 @@ lsr: obj/linkstate.o
 router: obj/router.o obj/minHeap.o
 	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
 
-minHeap: obj/minHeap.obj.o
+minHeap: obj/minHeap.obj.o 
 	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
 
 clean :

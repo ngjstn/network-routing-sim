@@ -72,7 +72,6 @@ void distance_vector(char* topologyFile, char* messageFile, char* changesFile, c
 
     fprintf(stdout, "router_list: %p\n\n", router_list);
     djikstras(router_list, get_router(1, router_list));
-    // find_shortest_path(router_list, get_router(1, router_list), get_router(3, router_list)->id);
 }
 
 
