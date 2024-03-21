@@ -8,7 +8,7 @@ all: dvr lsr
 dvr: obj/distancevector.o obj/router.o obj/minHeap.o
 	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
 
-lsr: obj/linkstate.o 
+lsr: obj/linkstate.o obj/router.o obj/minHeap.o
 	$(CC) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
 
 router: obj/router.o obj/minHeap.o

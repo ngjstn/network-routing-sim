@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 #include <sys/types.h>
 #include "../lib/router.h"
 #include "../lib/minHeap.h"
@@ -98,148 +97,6 @@ void decrease_key(min_heap* minHeap, int v, int dist, router* router_list)
         // move to parent index
         i = (i - 1) / 2;
     }
-}
-
-void djikstras(router* router_list, router* src)
-{
-    // find number of routers
-    int num_routers = 0;
-    router* current = router_list;
-    while (current != NULL)
-    {
-        num_routers++;
-        current = current->next;
-    }
-
-    // initialize distance array
-    int* dist = (int*)malloc(num_routers * sizeof(int));
-    if (dist == NULL)
-    {
-        fprintf(stderr, "Error: Unable to allocate memory for distance array\n");
-        exit(1);
-    }
-
-    int* prev = (int*)malloc(num_routers * sizeof(int));
-    if (prev == NULL)
-    {
-        fprintf(stderr, "Error: Unable to allocate memory for prev array\n");
-        exit(1);
-    }
-
-    fprintf(stdout, "\nDJIKSTRAS on src router %d\n", src->id);
-
-    // initialize min heap
-    min_heap* heap = create_min_heap(num_routers);
-
-    current = router_list;
-    int i = 0;
-    while (current != NULL)
-    {
-        current->dist_idx = i;
-        current->pos_idx = i;
-        heap->pos[i] = i;
-
-        if (current->id == src->id)
-        {
-            prev[i] = src->id; 
-            dist[i] = 0; 
-            heap->array[i] = create_min_heap_node(current->id, dist[i]);
-            // fprintf(stdout, "heap->array[0]: %d\n", heap->array[0]->dist);
-            // fprintf(stdout, "heap->array[%d]: %d\n", i, heap->array[i]->dist);
-            // fprintf(stdout, "router index 0: %d\n", get_router(heap->array[0]->v, router_list)->id);
-            decrease_key(heap, i, dist[i], router_list);
-            // fprintf(stdout, "heap->array[0]: %d\n", heap->array[0]->dist);
-            // fprintf(stdout, "heap->array[%d]: %d\n", i, heap->array[i]->dist);
-            // fprintf(stdout, "router index 0: %d\n", get_router(heap->array[0]->v, router_list)->id);
-        }
-        else 
-        {
-            dist[i] = INT_MAX;
-            prev[i] = -1;
-            heap->array[i] = create_min_heap_node(current->id, dist[i]);
-        }
-
-        i++; 
-        // fprintf(stdout, "router id: %d assigned dist_idx: %d\n", current->id, current->dist_idx);
-        current = current->next;
-    }
-
-    // print out heap array 
-    // fprintf(stdout, "heap array: \n");
-    // for (int i = 0; i < num_routers; i++)
-    // {
-    //     fprintf(stdout, "router id: %d, dist: %d\n", heap->array[i]->v, heap->array[i]->dist);
-    // }
-
-    // set distance to source as 0 and update heap
-    // heap->array[num_routers-1] = create_min_heap_node(src->id, dist[num_routers-1]);
-    // heap->pos[num_routers-1] = num_routers-1;
-    // get_router(src->id, router_list)->dist_idx = num_routers-1;
-    // dist[num_routers-1] = 0;
-    // decrease_key(heap, num_routers-1, dist[num_routers-1]);
-    heap->size = num_routers;
-
-    // fprintf(stdout, "heap size: %d\n", heap->size);
-
-    // heap contains all routers with undetermined shortest distance from src
-    while (!is_empty(heap))
-    {
-        min_heap_node* heap_node = extract_min(heap, router_list);
-        // fprintf(stdout, "\nextracted min: %d\n", heap_node->v);
-        int extracted = heap_node->v;
-        int ext_dist = get_router(extracted, router_list)->dist_idx;
-
-        // traverse all adjacent routers of u
-        neighbour_entry* neighbour = get_router(extracted, router_list)->neighbour_list;
-        while (neighbour != NULL)
-        {
-            // fprintf(stdout, "\nneighbour of router %d: %d\n", heap_node->v, neighbour->id);
-            int neighbour_dist_idx = neighbour->router_neighbour->dist_idx; 
-            // fprintf(stdout, "dist_idx of neighbour: %d\n", neighbour_dist_idx);
-            // fprintf(stdout, "dist[ext_dist]: %d, neighbour->path_cost: %d, dist[neighbour_dist_idx]: %d\n", dist[ext_dist], neighbour->path_cost, dist[neighbour_dist_idx]);
-            // fprintf(stdout, "is_in_heap: %d\n", is_in_heap(heap, neighbour_dist_idx));
-
-            if (!is_in_heap(heap, neighbour_dist_idx) && dist[ext_dist] != INT_MAX && (neighbour->path_cost + dist[ext_dist]) <= dist[neighbour_dist_idx])
-            {
-                if (neighbour->router_neighbour->id > extracted && neighbour->path_cost + dist[ext_dist] == dist[neighbour_dist_idx])
-                {
-                    // dist[neighbour_dist_idx] = dist[ext_dist];
-                    prev[neighbour_dist_idx] = extracted;
-                }
-                else 
-                {
-                    dist[neighbour_dist_idx] = dist[ext_dist] + neighbour->path_cost; 
-                    prev[neighbour_dist_idx] = heap_node->v;
-                }
-
-                // fprintf(stdout, "updated dist[%d]: %d\n", neighbour_dist_idx, dist[neighbour_dist_idx]);
-                decrease_key(heap, neighbour_dist_idx, dist[neighbour_dist_idx], router_list);
-            }
-            neighbour = neighbour->next;
-        }
-    }
-
-    // populate routing table entries for src router 
-    fprintf(stdout, "ROUTER %d TABLE\n", src->id);
-    fprintf(stdout, "Dest \t\t Next \t\t Distance from Source\n"); 
-    current = router_list;
-    while (current != NULL)
-    {
-        // reverse traverse the path from dest to src to find next hop from src
-        router* temp = current;
-        while (prev[temp->dist_idx] != src->id)
-        {
-            temp = get_router(prev[temp->dist_idx], router_list); 
-        }
-        // create route entry and add to src router's table
-        fprintf(stdout, "%d \t\t %d \t\t %d\n", current->id, temp->id, dist[current->dist_idx]);
-        add_table_entry(src, current->id, temp->id, dist[current->dist_idx]);
-        current = current->next;
-    }
-
-    // dealloc arrays after data is copied into routing table entries
-    free(dist);
-    free(prev);
 }
 
 // deallocates all routing tables and its entries
@@ -685,4 +542,182 @@ router* init_routers(char* topologyFile)
 
     // fprintf(stdout, "router_list: %p\n", router_list);
     return router_list;
+}
+
+void write_message_output(char *outputFile, char *message)
+{
+    FILE *file = fopen(outputFile, "a");
+    if (file == NULL)
+    {
+        fprintf(stderr, "Error: File %s not found\n", outputFile);
+        exit(1);
+    }
+
+    // write the message to the file
+    fwrite(message, 1, strlen(message), file);
+    fwrite("\n", 1, 1, file);
+    fwrite("\n", 1, 1, file);
+    fclose(file);
+}
+
+// updates the output file with ALL the routing tables in the routing_list 
+void write_tables_output(router* routing_list, char* outputFile)
+{
+    FILE* file = fopen(outputFile, "a+");
+    if (file == NULL)
+    {
+        fprintf(stderr, "Error: File %s not found\n", outputFile);
+        exit(1);
+    }
+
+    router* curr_router = routing_list;
+    while (curr_router != NULL)
+    {
+        if (curr_router->neighbour_list == NULL)
+        {
+            fprintf(stdout, "Warning: Router %d has no neighbours\n", curr_router->id);
+        }
+
+        // iterate through all the routes in the table
+        table_entry* tab_entry = curr_router->table_head; 
+        while (tab_entry != NULL)
+        {
+            char buffer[100]; 
+            fprintf(stdout, "%d %d %d\n", tab_entry->dest, tab_entry->next_hop, tab_entry->path_cost);
+            sprintf(buffer, "%d %d %d\n", tab_entry->dest, tab_entry->next_hop, tab_entry->path_cost);
+            fwrite(buffer, 1, strlen(buffer), file);
+            tab_entry = tab_entry->next;
+        }
+        fwrite("\n", 1, 1, file);
+        fprintf(stdout, "\n");
+        curr_router = curr_router->next;
+    }
+    fclose(file);
+}
+
+void send_message(char* messageFile, char* outputFile, router* router_list)
+{
+    FILE* file = fopen(messageFile, "r");
+    char* line = NULL;
+    size_t len = 0;
+    size_t read;
+    if (file == NULL)
+    {
+        fprintf(stderr, "Error: File %s not found\n", messageFile);
+        exit(1);
+    }
+
+    // find number of routers 
+    int num_routers = 0;
+    router* current = router_list;
+    while (current != NULL)
+    {
+        num_routers++;
+        current = current->next;
+    }
+    
+    while ((read = getline(&line, &len, file)) != -1)
+    {
+        // parse the line 
+        int src = atoi(strtok(line, " ")); 
+        int dest = atoi(strtok(NULL, " ")); 
+        char* message = strtok(NULL, "\n");
+        
+        // initialize hop id values to -1
+        int* hops = (int*)malloc(sizeof(int) * num_routers);
+        for (int i = 0; i < num_routers; i++)
+        {
+            hops[i] = -1;
+        }
+
+        // grab the starting source router
+        router* current = get_router(src, router_list);
+        if (current == NULL)
+        {
+            fprintf(stderr, "Error: Message source router %d not found\n", src);
+            exit(1);
+        }
+        int path_cost = -1; 
+
+        // first hop is the source itself
+        hops[0] = src; 
+        int hop_idx = 1;
+        
+        // traverse to the destination router
+        int unreachable = 0; 
+        while (current->id != dest)
+        {
+            // search routing table for next hop id
+            table_entry* tab_entry = get_routing_table_next_hop(current, dest); 
+            if (tab_entry == NULL)
+            {
+                // this counts as destination unreachable
+                fprintf(stderr, "Warning: No route from %d to %d\n", src, dest);
+                unreachable = 1; 
+                break;
+            }
+            
+            // only update the path cost if it's the first hop
+            if (path_cost == -1)
+            {
+                path_cost = tab_entry->path_cost; 
+            }
+
+            // traverse to next hop router
+            current = get_neighbour(current, tab_entry->next_hop);
+            if (current == NULL)
+            {
+                // this counts as destination unreachable 
+                fprintf(stderr, "Warning: Next hop router %d not found\n", tab_entry->next_hop);
+                unreachable = 1;
+                break; 
+            }
+            
+            // only need to record hops that aren't the destination 
+            if (current->id != dest)
+            {
+                // add the next hop id to the hops array
+                hops[hop_idx] = current->id;
+                hop_idx++;
+            }
+        }
+
+        if (!unreachable)
+        {
+            fprintf(stdout, "from %d to %d cost %d hops", src, dest, path_cost);
+            for (int i = 0; i < num_routers; i++)
+            {
+                if (hops[i] != -1)
+                {
+                    fprintf(stdout, " %d", hops[i]);
+                }
+            }
+            fprintf(stdout, " message %s\n", message);
+        }
+
+        char* buffer = (char*)malloc(sizeof(char) * (strlen(message) + num_routers + 100));
+        memset(buffer, '\0', sizeof(*buffer)); 
+        if (unreachable)
+        {
+            sprintf(buffer, "from %d to %d cost infinite hops unreachable message %s\n", src, dest, message);
+        }
+        else
+        {
+            // replace buffer, src, dest, pathCost, hops array, message with proper values
+            sprintf(buffer, "from %d to %d cost %d hops ", src, dest, path_cost);
+
+            for (int i = 0; i < num_routers; i++)
+            {
+                if (hops[i] != -1)
+                {
+                    sprintf(buffer + strlen(buffer), "%d ", hops[i]);
+                }
+            }
+
+            sprintf(buffer + strlen(buffer), "message %s", message);
+        }
+
+        // write to file
+        write_message_output(outputFile, buffer);
+    }
 }

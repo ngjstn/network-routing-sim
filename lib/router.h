@@ -19,10 +19,10 @@ typedef struct router
 {
     int id; 
     int dist_idx; // distance from source (used to index dist array in djikstras alg.)
-    int pos_idx; 
+    // int pos_idx; 
     table_entry* table_head;
     struct neighbour_entry* neighbour_list;    // used for traversing the graph
-    struct router* next;                       // used for linked list of ALL routers; doesn't represent neighbours
+    struct router* next;                       // ONLY used for router_list; not used for graph traversal  
 } router;
 
 typedef struct neighbour_entry
@@ -34,13 +34,7 @@ typedef struct neighbour_entry
 } neighbour_entry;
 
 
-// modified heap functions
-void heapify(min_heap* minHeap, int idx, router* router_list); 
-min_heap_node* extract_min(min_heap* minHeap, router* router_list); 
-void decrease_key(min_heap* minHeap, int v, int dist, router* router_list);
-
 // router/graph functions 
-void djikstras(router* router_list, router* src);
 table_entry* create_table_entry(int dest, int next_hop, int path_cost); 
 void add_table_entry(router* src_router, int dest, int next_hop, int path_cost); 
 neighbour_entry* create_neighbour_entry(router* router, int id, int path_cost); 
@@ -54,5 +48,14 @@ router* get_neighbour(router* router, int id);
 void destroy_all_routing_tables(router* router_list);
 void remove_neighbour_entry(router* router, int remove_id);
 
+// modified heap functions (used in djikstras)
+void heapify(min_heap* minHeap, int idx, router* router_list); 
+min_heap_node* extract_min(min_heap* minHeap, router* router_list); 
+void decrease_key(min_heap* minHeap, int v, int dist, router* router_list);
+
+// output file writing functions 
+void write_tables_output(router* routing_list, char* outputFile);
+void write_message_output(char *outputFile, char *message); 
+void send_message(char* messageFile, char* outputFile, router* router_list);
 
 #endif
