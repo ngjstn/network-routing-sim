@@ -199,10 +199,19 @@ void djikstras(router* router_list, router* src)
             // fprintf(stdout, "dist[ext_dist]: %d, neighbour->path_cost: %d, dist[neighbour_dist_idx]: %d\n", dist[ext_dist], neighbour->path_cost, dist[neighbour_dist_idx]);
             // fprintf(stdout, "is_in_heap: %d\n", is_in_heap(heap, neighbour_dist_idx));
 
-            if (!is_in_heap(heap, neighbour_dist_idx) && dist[ext_dist] != INT_MAX && (neighbour->path_cost + dist[ext_dist]) < dist[neighbour_dist_idx])
+            if (!is_in_heap(heap, neighbour_dist_idx) && dist[ext_dist] != INT_MAX && (neighbour->path_cost + dist[ext_dist]) <= dist[neighbour_dist_idx])
             {
-                dist[neighbour_dist_idx] = dist[ext_dist] + neighbour->path_cost; 
-                prev[neighbour_dist_idx] = heap_node->v;
+                if (neighbour->router_neighbour->id > extracted && neighbour->path_cost + dist[ext_dist] == dist[neighbour_dist_idx])
+                {
+                    // dist[neighbour_dist_idx] = dist[ext_dist];
+                    prev[neighbour_dist_idx] = extracted;
+                }
+                else 
+                {
+                    dist[neighbour_dist_idx] = dist[ext_dist] + neighbour->path_cost; 
+                    prev[neighbour_dist_idx] = heap_node->v;
+                }
+
                 // fprintf(stdout, "updated dist[%d]: %d\n", neighbour_dist_idx, dist[neighbour_dist_idx]);
                 decrease_key(heap, neighbour_dist_idx, dist[neighbour_dist_idx], router_list);
             }
@@ -407,22 +416,63 @@ router* get_neighbour(router* router, int id)
     return NULL;
 }
 
+void add_neighbour_entry(router* router, neighbour_entry* neighbour)
+{
+    neighbour_entry* current = router->neighbour_list;
+    neighbour_entry* prev = NULL;
+
+    // empty list
+    if (current == NULL)
+    {
+        router->neighbour_list = neighbour;
+        return;
+    }
+
+    // insert at the front of the list
+    if (neighbour->id < current->id)
+    {
+        neighbour->next = current;
+        router->neighbour_list = neighbour;
+        return;
+    }
+
+    // insert in the middle or end of the list
+    while (current != NULL)
+    {
+        if (neighbour->id < current->id)
+        {
+            prev->next = neighbour;
+            neighbour->next = current;
+            return;
+        }
+        prev = current;
+        current = current->next;
+    }
+
+    // insert at the end of the list
+    prev->next = neighbour;
+}
+
+
 // makes the 2 routers neighbours of each other; used in initial topology setup
 void set_neighbour_link(router* router1, router* router2, int id1, int id2, int path_cost)
 {
     neighbour_entry* neighbour_id1 = create_neighbour_entry(router1, id1, path_cost);
     neighbour_entry* neighbour_id2 = create_neighbour_entry(router2, id2, path_cost);
 
-    // set the neighbour entries to the front of the neighbour list
-    neighbour_entry* temp1 = router1->neighbour_list;
-    router1->neighbour_list = neighbour_id2;
-    neighbour_id2->next = temp1;
-    // fprintf(stdout, "added neighbour id:%d to router:%d\n", router1->neighbour_list->id, router1->id);
+    add_neighbour_entry(router1, neighbour_id2);
+    add_neighbour_entry(router2, neighbour_id1);
 
-    neighbour_entry* temp2 = router2->neighbour_list;
-    router2->neighbour_list = neighbour_id1;
-    neighbour_id1->next = temp2;
-    // fprintf(stdout, "added neighbour id:%d to router:%d\n", router2->neighbour_list->id, router2->id);
+    // // set the neighbour entries to the front of the neighbour list
+    // neighbour_entry* temp1 = router1->neighbour_list;
+    // router1->neighbour_list = neighbour_id2;
+    // neighbour_id2->next = temp1;
+    // // fprintf(stdout, "added neighbour id:%d to router:%d\n", router1->neighbour_list->id, router1->id);
+
+    // neighbour_entry* temp2 = router2->neighbour_list;
+    // router2->neighbour_list = neighbour_id1;
+    // neighbour_id1->next = temp2;
+    // // fprintf(stdout, "added neighbour id:%d to router:%d\n", router2->neighbour_list->id, router2->id);
 }
 
 // used to get a router pointer by id 
