@@ -126,7 +126,7 @@ void djikstras(router* router_list, router* src)
         exit(1);
     }
 
-    fprintf(stdout, "DJIKSTRAS on src router %d\n", src->id);
+    fprintf(stdout, "\nDJIKSTRAS on src router %d\n", src->id);
 
     // initialize min heap
     min_heap* heap = create_min_heap(num_routers);
@@ -209,22 +209,27 @@ void djikstras(router* router_list, router* src)
         }
     }
 
+    // populate routing table entries for src router 
     fprintf(stdout, "ROUTER %d TABLE\n", src->id);
     fprintf(stdout, "Dest \t\t Next \t\t Distance from Source\n"); 
     current = router_list;
     while (current != NULL)
     {
+        // reverse traverse the path from dest to src to find next hop from src
         router* temp = current;
         while (prev[temp->dist_idx] != src->id)
         {
             temp = get_router(prev[temp->dist_idx], router_list); 
         }
+        // create route entry and add to src router's table
         fprintf(stdout, "%d \t\t %d \t\t %d\n", current->id, temp->id, dist[current->dist_idx]);
-
-        // add route to routing table 
         add_table_entry(src, current->id, temp->id, dist[current->dist_idx]);
         current = current->next;
     }
+
+    // dealloc arrays after data is copied into routing table entries
+    free(dist);
+    free(prev);
 }
 
 
@@ -244,6 +249,23 @@ table_entry* create_table_entry(int dest, int next_hop, int path_cost)
     entry->next = NULL;
 
     return entry;
+}
+
+table_entry* get_routing_table_next_hop(router* src_router, int dest)
+{
+    table_entry* current = src_router->table_head;
+    while (current != NULL)
+    {
+        if (current->dest == dest)
+        {
+            
+            // fprintf(stdout, "dest: %d, next_hop: %d, path_cost: %d\n", current->dest, current->next_hop, current->path_cost);
+            return current;
+        }
+        current = current->next;
+    }
+    fprintf(stdout, "dest: %d not found in routing table\n", dest);
+    return NULL; 
 }
 
 // adds a table entry to the routing table in ascending order of destination id
@@ -302,6 +324,22 @@ neighbour_entry* create_neighbour_entry(router* router, int id, int path_cost)
     return neighbour;
 }
 
+router* get_neighbour(router* router, int id)
+{
+    neighbour_entry* current = router->neighbour_list;
+    while (current != NULL)
+    {
+        if (current->id == id)
+        {
+            // fprintf(stdout, "neighbour id: %d, path_cost: %d\n", current->id, current->path_cost);
+            return current->router_neighbour;
+        }
+        current = current->next;
+    }
+    fprintf(stdout, "neighbour id: %d not found\n", id);
+    return NULL;
+}
+
 // makes the 2 routers neighbours of each other; used in initial topology setup
 void set_neighbour_link(router* router1, router* router2, int id1, int id2, int path_cost)
 {
@@ -312,16 +350,12 @@ void set_neighbour_link(router* router1, router* router2, int id1, int id2, int 
     neighbour_entry* temp1 = router1->neighbour_list;
     router1->neighbour_list = neighbour_id2;
     neighbour_id2->next = temp1;
-    fprintf(stdout, "added neighbour id:%d to router:%d\n", router1->neighbour_list->id, router1->id);
+    // fprintf(stdout, "added neighbour id:%d to router:%d\n", router1->neighbour_list->id, router1->id);
 
     neighbour_entry* temp2 = router2->neighbour_list;
     router2->neighbour_list = neighbour_id1;
     neighbour_id1->next = temp2;
-    fprintf(stdout, "added neighbour id:%d to router:%d\n", router2->neighbour_list->id, router2->id);
-
-    // update routing tables 
-    // table_entry* router1_entry = create_table_entry(router1->id, router1->id, path_cost);
-    // table_entry* router2_entry = create_table_entry(router2->id, router2->id, path_cost);
+    // fprintf(stdout, "added neighbour id:%d to router:%d\n", router2->neighbour_list->id, router2->id);
 }
 
 // used to get a router pointer by id 
@@ -427,22 +461,22 @@ router* init_routers(char* topologyFile)
     }
 
     // each line in the topologyFile is a link between 2 routers
-    fprintf(stdout, "CREATING ROUTER TOPOLOGY\n");
+    // fprintf(stdout, "CREATING ROUTER TOPOLOGY\n");
     while ((read = getline(&line, &len, file)) != -1)
     {
         char* id1 = strtok(line, " "); 
         char* id2 = strtok(NULL, " ");
         char* path_cost = strtok(NULL, " ");
-        printf("LINE -> id1: %s, id2: %s, path_cost: %s\n", id1, id2, path_cost);
+        // printf("LINE -> id1: %s, id2: %s, path_cost: %s\n", id1, id2, path_cost);
 
         // router list is empty
         if (router_list == NULL)
         {
             // create a router for id1 and set it to router_list (head of linked list)
             router* router1 = create_router(atoi(id1)); 
-            fprintf(stdout, "created router %p, id: %d\n", router1, router1->id);
+            // fprintf(stdout, "created router %p, id: %d\n", router1, router1->id);
             router* router2 = create_router(atoi(id2));
-            fprintf(stdout, "created router %p, id: %d\n\n", router2, router2->id);
+            // fprintf(stdout, "created router %p, id: %d\n\n", router2, router2->id);
             set_neighbour_link(router1, router2, atoi(id1), atoi(id2), atoi(path_cost));
 
             // set router1 as the head of the list; place router2 after router1 (end of linked list)
@@ -489,7 +523,7 @@ router* init_routers(char* topologyFile)
                 // router1->next = current;
                 // router_list = router1;
                 router_list = add_router(router_list, router1);
-                fprintf(stdout, "created router %p, id: %d\n", router1, router1->id);
+                // fprintf(stdout, "created router %p, id: %d\n", router1, router1->id);
             }
             if (!found2)
             {
@@ -497,7 +531,7 @@ router* init_routers(char* topologyFile)
                 // router2->next = current;
                 // router_list = router2;
                 router_list = add_router(router_list, router2);
-                fprintf(stdout, "created router %p, id: %d\n", router2, router2->id);
+                // fprintf(stdout, "created router %p, id: %d\n", router2, router2->id);
             }
             
             // fprintf(stdout, "router1: %p, router2: %p\n", router1, router2);

@@ -18,14 +18,21 @@ void link_state(char* topologyFile, char* messageFile, char* changesFile, char* 
 
     // if there are ties, break them the same way
 
+    // routers periodically say hello to each other
+    // no specific listening protocol
+    // if they stop hearing from a router, they assume it's dead
+
     // flood information
+    // tell everyone that you are neighbors
     // when local info changes, send to all neighbors
     // if you receive a packet from neighbour, send to all other neighbours
     //      unless you've already seen it
     //      for the most part this is related to reliability and drops
     //      idk if we need to worry about it
 
-    // 
+    // everyone floods link/destination information
+    // everyone has a global map of the network
+    // everyone independently computes next-hops
 
 }
 

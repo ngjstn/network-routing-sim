@@ -56,6 +56,8 @@ router* get_router(int id, router* router_list);
 router* add_router(router* router_list, router* new_router);
 router* create_router(int id);
 router* init_routers(char* topologyFile);
+table_entry* get_routing_table_next_hop(router* src_router, int dest);
+router* get_neighbour(router* router, int id); 
 
 
 #endif
