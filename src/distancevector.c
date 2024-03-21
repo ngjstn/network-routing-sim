@@ -4,11 +4,6 @@
 #include <sys/types.h>
 #include "../lib/router.h"
 
-void process_change_topology(char* changesFile, router* router_list)
-{
-    (void)changesFile;
-    (void)router_list;
-}
 
 void write_message_output(char *outputFile, char *message)
 {
@@ -21,6 +16,7 @@ void write_message_output(char *outputFile, char *message)
 
     // write the message to the file
     fwrite(message, 1, strlen(message), file);
+    fwrite("\n", 1, 1, file);
     fwrite("\n", 1, 1, file);
     fclose(file);
 }
@@ -112,15 +108,18 @@ void send_message(char* messageFile, char* outputFile, router* router_list)
             }
         }
 
-        fprintf(stdout, "from %d to %d cost %d hops", src, dest, path_cost);
-        for (int i = 0; i < num_routers; i++)
+        if (!unreachable)
         {
-            if (hops[i] != -1)
+            fprintf(stdout, "from %d to %d cost %d hops", src, dest, path_cost);
+            for (int i = 0; i < num_routers; i++)
             {
-                fprintf(stdout, " %d", hops[i]);
+                if (hops[i] != -1)
+                {
+                    fprintf(stdout, " %d", hops[i]);
+                }
             }
+            fprintf(stdout, " message %s\n", message);
         }
-        fprintf(stdout, " message %s\n", message);
 
         char* buffer = (char*)malloc(sizeof(char) * (strlen(message) + num_routers + 100));
         memset(buffer, '\0', sizeof(*buffer)); 
@@ -147,7 +146,6 @@ void send_message(char* messageFile, char* outputFile, router* router_list)
         // write to file
         write_message_output(outputFile, buffer);
     }
-    
 }
 
 // updates the output file with ALL the routing tables in the routing_list 
@@ -185,6 +183,93 @@ void write_tables_output(router* routing_list, char* outputFile)
     fclose(file);
 }
 
+void process_change_topology(char* messageFile, char* changesFile, char* outputFile, router* router_list)
+{
+    FILE* file = fopen(changesFile, "r"); 
+    char* line = NULL;
+    size_t len = 0;
+    size_t read;
+    if (file == NULL)
+    {
+        fprintf(stderr, "Error: File %s not found\n", changesFile);
+        exit(1);
+    }
+
+    while ((read = getline(&line, &len, file)) != -1)
+    {
+        // parse the line 
+        int src_id = atoi(strtok(line, " "));
+        int dest_id = atoi(strtok(NULL, " "));
+        int cost = atoi(strtok(NULL, "\n"));
+
+        // don't need to keep old routes; djiikstra's will create new tables 
+        destroy_all_routing_tables(router_list);
+
+        // get router structs 
+        router* src_router = get_router(src_id, router_list);
+        router* dest_router = get_router(dest_id, router_list);
+
+        // removing link between src and dest 
+        if (cost == -999)
+        {
+            fprintf(stdout, "Removing neighbour link between %d and %d\n", src_id, dest_id);
+            // remove neighbour link 
+            remove_neighbour_entry(src_router, dest_id); 
+            remove_neighbour_entry(dest_router, src_id); 
+        }
+        // add/change link between src and dest
+        else 
+        {
+            // neighbour link already exists 
+            if (get_neighbour(src_router, dest_id) != NULL)
+            {
+                fprintf(stdout, "Updating neighbour link between %d and %d\n", src_id, dest_id);
+                // remove old neighbour link
+                remove_neighbour_entry(src_router, dest_id);
+                remove_neighbour_entry(dest_router, src_id);
+
+                // create new neighbour link 
+                set_neighbour_link(src_router, dest_router, src_id, dest_id, cost);
+            }
+            // neighbour link doesn't exist
+            else 
+            {
+                fprintf(stdout, "Adding neighbour link between %d and %d\n", src_id, dest_id);
+                // create new neighbour link 
+                set_neighbour_link(src_router, dest_router, src_id, dest_id, cost);
+            }
+        }
+
+        fprintf(stdout, "\nUPDATED ROUTER LIST TOPOLOGY\n");
+        fprintf(stdout, "router_list: %p\n", router_list);
+        router* current = router_list;
+        while (current != NULL)
+        {
+            fprintf(stdout, "router id: %d\n", current->id);
+
+            // print out neighbour list 
+            neighbour_entry* neighbour = current->neighbour_list;
+            while (neighbour != NULL)
+            {
+                fprintf(stdout, "---> neighbour id: %d, path_cost: %d\n", neighbour->id, neighbour->path_cost);
+                neighbour = neighbour->next;
+            }
+            current = current->next;
+        }
+
+        // run dijkstra's algorithm on all routers to regenerate tables
+        current = router_list;
+        while (current != NULL)
+        {
+            djikstras(router_list, current);
+            current = current->next;
+        }
+
+        write_tables_output(router_list, outputFile); 
+        send_message(messageFile, outputFile, router_list);
+    }
+}
+
 void distance_vector(char* topologyFile, char* messageFile, char* changesFile, char* outputFile)
 {
     (void)messageFile;
@@ -201,14 +286,16 @@ void distance_vector(char* topologyFile, char* messageFile, char* changesFile, c
         current = current->next;
     }
 
-    // write tables for initial topology convergence 
+    // write tables for initial topology 
     fprintf(stdout, "\nWRITING TABLES TO %s\n\n", outputFile); 
     write_tables_output(router_list, outputFile);
 
-
-    
+    // write messages for initial topology 
     fprintf(stdout, "WRITING MESSAGES TO %s\n\n", outputFile);
     send_message(messageFile, outputFile, router_list);
+
+    // process all changes
+    process_change_topology(messageFile, changesFile, outputFile, router_list);
 }
 
 int main(int argc, char** argv)

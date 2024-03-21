@@ -155,6 +155,7 @@ void djikstras(router* router_list, router* src)
         else 
         {
             dist[i] = INT_MAX;
+            prev[i] = -1;
             heap->array[i] = create_min_heap_node(current->id, dist[i]);
         }
 
@@ -230,6 +231,40 @@ void djikstras(router* router_list, router* src)
     // dealloc arrays after data is copied into routing table entries
     free(dist);
     free(prev);
+}
+
+// deallocates all routing tables and its entries
+void destroy_all_routing_tables(router* router_list)
+{
+    fprintf(stdout, "\nDEALLOCATING ROUTING TABLES\n");
+    router* current = router_list; 
+    while (current != NULL)
+    {
+        table_entry* current_entry = current->table_head;
+        while (current_entry != NULL)
+        {
+            table_entry* temp = current_entry;
+            current_entry = current_entry->next;
+            // fprintf(stdout, "current_entry: %p\n", current_entry);
+            free(temp);
+        }
+        // fprintf(stdout, "Router %d table head: %p\n", current->id, current_entry);
+        current->table_head = NULL;
+        current = current->next;
+    }
+
+    // verify all routing tables are deallocated
+    current = router_list;
+    while (current != NULL)
+    {
+        // fprintf(stdout, "Router %d table head: %p\n", current->id, current->table_head);
+        if (current->table_head != NULL)
+        {
+            fprintf(stderr, "Error: Routing table for router %d not deallocated\n", current->id);
+            exit(1);
+        }
+        current = current->next;
+    }
 }
 
 
@@ -322,6 +357,38 @@ neighbour_entry* create_neighbour_entry(router* router, int id, int path_cost)
     neighbour->next = NULL;
 
     return neighbour;
+}
+
+void remove_neighbour_entry(router* router, int remove_id)
+{
+    // remove from neighbour linked list 
+    neighbour_entry* current = router->neighbour_list;
+    neighbour_entry* prev = NULL;
+    while (current != NULL)
+    {
+        if (current->id == remove_id)
+        {
+            // remove from front 
+            if (prev == NULL)
+            {
+                router->neighbour_list = current->next;
+            }
+            // remove from end 
+            else if (current->next == NULL)
+            {
+                prev->next = NULL; 
+            }
+            // remove from middle 
+            else 
+            {
+                prev->next = current->next;
+            }
+            free(current);
+            return;
+        }
+        prev = current;
+        current = current->next;
+    }
 }
 
 router* get_neighbour(router* router, int id)
