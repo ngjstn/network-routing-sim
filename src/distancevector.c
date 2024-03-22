@@ -5,8 +5,9 @@
 #include <sys/types.h>
 #include "../lib/router.h"
 
-// function prototype for compiler
-void compare_vector(router* src, table_entry* neighbour_vector, int neighbour_id, int cost_to_neighbour); 
+// function prototypes for compiler
+void advertise_change(router* src, table_entry* updated_src_vector); 
+void compare_vector(router* src, table_entry* neighbour_vector, int neighbour_id, int cost_to_neighbour);
 
 // (UNUSED) compute routing table entries for src router 
 void bellman_ford(router* router_list, router* src)
@@ -86,12 +87,14 @@ void bellman_ford(router* router_list, router* src)
         fprintf(stdout, "%d \t\t %d \t\t %d\n", current->id, next_hop[current->dist_idx], dist[current->dist_idx]);
         current = current->next; 
     }
+
+    free(dist);
+    free(next_hop);
 }
 
 // router tables are initialized with only route entries for direct neighbours
 void init_tables_entries(router* router_list)
 {
-    fprintf(stdout, "INIT TABLES\n");
     router* current_router = router_list; 
     while (current_router != NULL)
     {
@@ -109,8 +112,8 @@ void init_tables_entries(router* router_list)
     }
 }
 
-// transmit the new vector change to all neighbours of the src; recursive wrapper for propogating vector changes
-static void advertise_change(router* src, table_entry* updated_src_vector)
+// transmit the new vector change to all neighbours of the src; recursive for propogating vector changes
+void advertise_change(router* src, table_entry* updated_src_vector)
 {
     neighbour_entry* current_neighbour = src->neighbour_list;
     while (current_neighbour != NULL) 
@@ -135,7 +138,7 @@ static void advertise_change(router* src, table_entry* updated_src_vector)
 void compare_vector(router* src, table_entry* neighbour_vector, int neighbour_id, int cost_to_neighbour)
 {
     // SPLIT HORIZON: should not advertise routes back to the router that sent it
-    // in simulation, do not accept routes from the neighbour that has the src as the next hop 
+    // in simulation, just don't accept routes from the neighbour that has the src as the next hop 
     if (neighbour_vector->dest == src->id)
     {
         // ignore this advertisement
@@ -158,17 +161,27 @@ void compare_vector(router* src, table_entry* neighbour_vector, int neighbour_id
                 fprintf(stdout, "Old route to router %d from router %d with cost %d\n", neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
                 // replace current route with neighbours route 
                 int old_cost = current_vector->path_cost;
-                current_vector->path_cost = neighbour_vector->path_cost + cost_to_neighbour;
+
+                // POISON ad doesn't need to include the cost to the neighbour since it's infinite
+                if (neighbour_vector->path_cost == INT_MAX)
+                {
+                    current_vector->path_cost = INT_MAX; 
+                }
+                // regular ad includes the cost to the neighbour
+                else 
+                {
+                    current_vector->path_cost = neighbour_vector->path_cost + cost_to_neighbour;
+                }
                 fprintf(stdout, "New route to router %d from router %d with cost %d\n", neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
                 
                 // only advertise if the cost has changed
-                if (current_vector->path_cost != old_cost)
+                if (current_vector->path_cost != old_cost && current_vector->path_cost >= 0)
                 {
                     advertise_change(src, current_vector);
                 }
             }
             // neighbours' advertised distance is better than current distance to dest
-            else if (neighbour_vector->path_cost + cost_to_neighbour < current_vector->path_cost)
+            else if (neighbour_vector->path_cost != INT_MAX && neighbour_vector->path_cost + cost_to_neighbour < current_vector->path_cost)
             {
                 fprintf(stdout, "Old route to router %d from router %d with cost %d\n", neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
                 current_vector->path_cost = neighbour_vector->path_cost + cost_to_neighbour;
@@ -212,13 +225,113 @@ void receive_pseudo_ads(router* src)
     }
 }
 
+// poison the hops that go through the broken link dest_id 
+void link_break_poison_ad(router* src_router, int dest_id)
+{
+    // poison src table entries that have next hop as dest
+    fprintf(stdout, "\nPoisoning routes to router %d\n", dest_id);
+    table_entry* current_vector = src_router->table_head;
+    while (current_vector != NULL)
+    {
+        if (current_vector->next_hop == dest_id)
+        {
+            current_vector->path_cost = INT_MAX;
+            advertise_change(src_router, current_vector);
+        }
+        current_vector = current_vector->next;
+    }
+}
+
+void process_change_topology(char* messageFile, char* changesFile, char* outputFile, router* router_list)
+{
+    FILE* file = fopen(changesFile, "r");
+    char* line = NULL; 
+    size_t len = 0;
+    size_t read;
+    if (file == NULL)
+    {
+        fprintf(stderr, "Error: Unable to open changes file\n");
+        exit(1);
+    }
+
+    while ((read = getline(&line, &len, file)) != -1)
+    {
+        // parse the line 
+        int src_id = atoi(strtok(line, " "));
+        int dest_id = atoi(strtok(NULL, " "));
+        int cost = atoi(strtok(NULL, "\n"));
+
+        router* src_router = get_router(src_id, router_list);
+        if (src_router == NULL)
+        {
+            // router does not exist in the graph; add it
+            src_router = create_router(src_id); 
+            add_router(router_list, src_router);
+            add_table_entry(src_router, src_id, src_id, 0);
+        }
+
+        router* dest_router = get_router(dest_id, router_list);
+        if (dest_router == NULL)
+        {
+            // router does not exist in the graph; add it
+            dest_router = create_router(dest_id); 
+            add_router(router_list, dest_router);
+            add_table_entry(dest_router, dest_id, dest_id, 0);
+        }
+
+        // removing link between src and dest
+        if (cost == -999)
+        {
+            fprintf(stdout, "Removing link between %d and %d\n", src_id, dest_id);
+            // break graph link 
+            remove_neighbour_entry(src_router, dest_id);
+            remove_neighbour_entry(dest_router, src_id);
+
+            // poison the hops that go through the broken link dest_id
+            link_break_poison_ad(src_router, dest_id);
+            link_break_poison_ad(dest_router, src_id);
+
+            // receive new ads after poison to update routing table shortest paths 
+            fprintf(stdout, "\n\nAFTER POISON ADVERTISEMENT\n");
+            router* current = router_list; 
+            while (current != NULL) 
+            {
+                receive_pseudo_ads(current);
+                current = current->next;
+            }
+        }
+        // add/change link between src and dest 
+        else 
+        {
+            // neighbour link already exists
+            if (get_neighbour(src_router, dest_id) != NULL)
+            {
+                fprintf(stdout, "Changing link between %d and %d\n", src_id, dest_id);
+                remove_neighbour_entry(src_router, dest_id);
+                remove_neighbour_entry(dest_router, src_id);
+                set_neighbour_link(src_router, dest_router, src_id, dest_id, cost);
+            }
+            // neighbour link doesn't exist
+            else
+            {
+                fprintf(stdout, "Adding link between %d and %d\n", src_id, dest_id);
+                set_neighbour_link(src_router, dest_router, src_id, dest_id, cost); 
+            }
+            // propogate the change to all neighbours of the src and dest routers 
+            advertise_change(src_router, get_routing_table_next_hop(src_router, dest_id));
+            advertise_change(dest_router, get_routing_table_next_hop(dest_router, src_id));
+            receive_pseudo_ads(src_router); 
+            receive_pseudo_ads(dest_router);
+        }
+
+        // update output file after convergence 
+        write_tables_output(router_list, outputFile);
+        send_message(messageFile, outputFile, router_list);
+    }
+}
+
 void distance_vector(char* topologyFile, char* messageFile, char* changesFile, char* outputFile)
 {
-    (void)topologyFile;
-    (void)messageFile;
-    (void)changesFile;
-    (void)outputFile;
-
     // establish graph nodes and links 
     router* graph = init_routers(topologyFile);
 
@@ -234,9 +347,13 @@ void distance_vector(char* topologyFile, char* messageFile, char* changesFile, c
         receive_pseudo_ads(current);
         current = current->next;
     }
- 
+
+    // update output file after convergence 
     write_tables_output(graph, outputFile);
     send_message(messageFile, outputFile, graph);
+
+    // begin applying changes to the graph topology
+    process_change_topology(messageFile, changesFile, outputFile, graph);
 }
 
 int main(int argc, char** argv)

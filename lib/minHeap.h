@@ -24,11 +24,7 @@ typedef struct min_heap
 min_heap* create_min_heap(int capacity);
 min_heap_node* create_min_heap_node(int v, int dist);
 void swap_heap_node(min_heap_node **a, min_heap_node **b);
-// void heapify(min_heap *heap, int idx);
 int is_empty(min_heap* heap);
-// min_heap_node* extract_min(min_heap* heap);
-// void decrease_key(min_heap* heap, int v, int dist);
 int is_in_heap(min_heap* heap, int v);
-// void printArr(int dist[], int n); 
 
 #endif 

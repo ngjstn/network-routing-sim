@@ -7,7 +7,7 @@
 
 
 // used to generate shortest path routing table entries for all routers in the network
-void djikstras(router* router_list, router* src)
+void dijkstras(router* router_list, router* src)
 {
     // find number of routers
     int num_routers = 0;
@@ -33,7 +33,7 @@ void djikstras(router* router_list, router* src)
         exit(1);
     }
 
-    fprintf(stdout, "\nDJIKSTRAS on src router %d\n", src->id);
+    fprintf(stdout, "\nDIJKSTRAS on src router %d\n", src->id);
 
     // initialize min heap
     min_heap* heap = create_min_heap(num_routers);
@@ -173,6 +173,7 @@ void process_change_topology(char* messageFile, char* changesFile, char* outputF
         router* src_router = get_router(src_id, router_list);
         if (src_router == NULL)
         {
+            // router does not exist in the graph; add it
             src_router = create_router(src_id); 
             add_router(router_list, src_router);
         }
@@ -180,6 +181,7 @@ void process_change_topology(char* messageFile, char* changesFile, char* outputF
         router* dest_router = get_router(dest_id, router_list);
         if (dest_router == NULL)
         {
+            // router does not exist in the graph; add it
             dest_router = create_router(dest_id); 
             add_router(router_list, dest_router);
         }
@@ -215,28 +217,28 @@ void process_change_topology(char* messageFile, char* changesFile, char* outputF
             }
         }
 
-        fprintf(stdout, "\nUPDATED ROUTER LIST TOPOLOGY\n");
-        fprintf(stdout, "router_list: %p\n", router_list);
+        // fprintf(stdout, "\nUPDATED ROUTER LIST TOPOLOGY\n");
+        // fprintf(stdout, "router_list: %p\n", router_list);
+        // router* current = router_list;
+        // while (current != NULL)
+        // {
+        //     fprintf(stdout, "router id: %d\n", current->id);
+
+        //     // print out neighbour list 
+        //     neighbour_entry* neighbour = current->neighbour_list;
+        //     while (neighbour != NULL)
+        //     {
+        //         fprintf(stdout, "---> neighbour id: %d, path_cost: %d\n", neighbour->id, neighbour->path_cost);
+        //         neighbour = neighbour->next;
+        //     }
+        //     current = current->next;
+        // }
+
+        // run dijkstra's algorithm on all routers to update tables
         router* current = router_list;
         while (current != NULL)
         {
-            fprintf(stdout, "router id: %d\n", current->id);
-
-            // print out neighbour list 
-            neighbour_entry* neighbour = current->neighbour_list;
-            while (neighbour != NULL)
-            {
-                fprintf(stdout, "---> neighbour id: %d, path_cost: %d\n", neighbour->id, neighbour->path_cost);
-                neighbour = neighbour->next;
-            }
-            current = current->next;
-        }
-
-        // run dijkstra's algorithm on all routers to update tables
-        current = router_list;
-        while (current != NULL)
-        {
-            djikstras(router_list, current);
+            dijkstras(router_list, current);
             current = current->next;
         }
 
@@ -253,7 +255,7 @@ void link_state(char* topologyFile, char* messageFile, char* changesFile, char* 
     current = graph; 
     while (current != NULL)
     {
-        djikstras(graph, current);
+        dijkstras(graph, current);
         current = current->next;
     }
 

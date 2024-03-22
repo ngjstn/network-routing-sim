@@ -209,7 +209,7 @@ void add_table_entry(router* src_router, int dest, int next_hop, int path_cost)
 }
 
 // used for creating the entry struct, not for setting the neighbour link
-neighbour_entry* create_neighbour_entry(router* router, int id, int path_cost)
+static neighbour_entry* create_neighbour_entry(router* router, int id, int path_cost)
 {
     neighbour_entry* neighbour = (neighbour_entry*)malloc(sizeof(neighbour_entry));
     if (neighbour == NULL)
@@ -319,17 +319,6 @@ void set_neighbour_link(router* router1, router* router2, int id1, int id2, int 
 
     add_neighbour_entry(router1, neighbour_id2);
     add_neighbour_entry(router2, neighbour_id1);
-
-    // // set the neighbour entries to the front of the neighbour list
-    // neighbour_entry* temp1 = router1->neighbour_list;
-    // router1->neighbour_list = neighbour_id2;
-    // neighbour_id2->next = temp1;
-    // // fprintf(stdout, "added neighbour id:%d to router:%d\n", router1->neighbour_list->id, router1->id);
-
-    // neighbour_entry* temp2 = router2->neighbour_list;
-    // router2->neighbour_list = neighbour_id1;
-    // neighbour_id1->next = temp2;
-    // // fprintf(stdout, "added neighbour id:%d to router:%d\n", router2->neighbour_list->id, router2->id);
 }
 
 // used to get a router pointer by id 
@@ -363,23 +352,13 @@ router* create_router(int id)
         exit(1);
     }
     new_router->id = id;
-
-    // new_router->table = (routing_table*)malloc(sizeof(routing_table));
-    // if (new_router->table == NULL)
-    // {
-    //     fprintf(stderr, "Error: Unable to allocate memory for new router's routing table\n");
-    //     free(new_router);
-    //     exit(1);
-    // }
-    // new_router->table->head = NULL;
-
     new_router->table_head = NULL;
     new_router->neighbour_list = NULL;
     new_router->next = NULL;
     return new_router;
 }
 
-// adds router to routing list in ascending order of id
+// adds router to routing list graph in ascending order of id
 router* add_router(router* router_list, router* new_router)
 {
     router* current = router_list;
@@ -454,8 +433,6 @@ router* init_routers(char* topologyFile)
             set_neighbour_link(router1, router2, atoi(id1), atoi(id2), atoi(path_cost));
 
             // set router1 as the head of the list; place router2 after router1 (end of linked list)
-            // router2->next = router1; 
-            // router_list = router2;
             router_list = add_router(router_list, router1);
             router_list = add_router(router_list, router2);
         }
@@ -508,8 +485,6 @@ router* init_routers(char* topologyFile)
                 // fprintf(stdout, "created router %p, id: %d\n", router2, router2->id);
             }
             
-            // fprintf(stdout, "router1: %p, router2: %p\n", router1, router2);
-            // fprintf(stdout, "router1->id: %d, router2->id: %d\n", router1->id, router2->id);
             // routers should be found or created by this point
             if (router1 == NULL || router2 == NULL)
             {
