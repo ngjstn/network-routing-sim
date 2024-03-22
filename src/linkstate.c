@@ -248,25 +248,25 @@ void process_change_topology(char* messageFile, char* changesFile, char* outputF
 void link_state(char* topologyFile, char* messageFile, char* changesFile, char* outputFile)
 {
     // list of all routers
-    router* router_list = init_routers(topologyFile);
-    router* current = router_list;
-    current = router_list; 
+    router* graph = init_routers(topologyFile);
+    router* current = graph;
+    current = graph; 
     while (current != NULL)
     {
-        djikstras(router_list, current);
+        djikstras(graph, current);
         current = current->next;
     }
 
     // write tables for initial convergence after dijkstras
     fprintf(stdout, "\nWRITING TABLES TO %s\n\n", outputFile); 
-    write_tables_output(router_list, outputFile);
+    write_tables_output(graph, outputFile);
 
     // write messages for initial convergence 
     fprintf(stdout, "WRITING MESSAGES TO %s\n\n", outputFile);
-    send_message(messageFile, outputFile, router_list);
+    send_message(messageFile, outputFile, graph);
 
     // process all changes
-    process_change_topology(messageFile, changesFile, outputFile, router_list);
+    process_change_topology(messageFile, changesFile, outputFile, graph);
 }
 
 int main(int argc, char** argv)

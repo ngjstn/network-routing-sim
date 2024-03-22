@@ -7,6 +7,7 @@
 #ifndef ROUTER_H
 #define ROUTER_H
 
+// used interchangeably as a vector for dv protocol
 typedef struct table_entry
 {
     int dest; 
@@ -15,22 +16,23 @@ typedef struct table_entry
     struct table_entry* next; 
 } table_entry;
 
+// graph node for the router network
 typedef struct router
 {
     int id; 
-    int dist_idx; // distance from source (used to index dist array in bellman ford and djikstras)
-    // int pos_idx; 
+    int dist_idx;                              // distance from source (used to index dist array in bellman ford and djikstras)
     table_entry* table_head;
-    struct neighbour_entry* neighbour_list;    // used for traversing the graph
-    struct router* next;                       // ONLY used for router_list; not used for graph traversal  
+    struct neighbour_entry* neighbour_list;    // used for traversing the graph through directly connected routers
+    struct router* next;                       // ONLY used for initial graph representation; not used for graph traversal or routing table computation 
 } router;
 
+// node for neighbour linked list stored in each router; represents an adjacent node in the graph
 typedef struct neighbour_entry
 {
     int id; 
     int path_cost;
-    router* router_neighbour;
-    struct neighbour_entry* next;
+    router* router_neighbour;                  // the actual router struct representing this neighbour
+    struct neighbour_entry* next;              // next neighbour in the list 
 } neighbour_entry;
 
 

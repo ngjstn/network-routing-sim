@@ -595,6 +595,7 @@ void write_tables_output(router* routing_list, char* outputFile)
     fclose(file);
 }
 
+// sends a message using only the routing tables
 void send_message(char* messageFile, char* outputFile, router* router_list)
 {
     FILE* file = fopen(messageFile, "r");

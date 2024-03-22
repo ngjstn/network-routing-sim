@@ -5,7 +5,10 @@
 #include <sys/types.h>
 #include "../lib/router.h"
 
-// compute routing table entries for src router 
+// function prototype for compiler
+void compare_vector(router* src, table_entry* neighbour_vector, int neighbour_id, int cost_to_neighbour); 
+
+// (UNUSED) compute routing table entries for src router 
 void bellman_ford(router* router_list, router* src)
 {
     fprintf(stdout, "\nBELLMAN FORD on router %d\n", src->id); 
@@ -68,7 +71,6 @@ void bellman_ford(router* router_list, router* src)
                 {
                     dist[current_router->dist_idx] = dist[current_neighbour->router_neighbour->dist_idx] + current_neighbour->path_cost;
                     next_hop[current_router->dist_idx] = current_neighbour->id;
-                    // fprintf(stdout, "Updated distance to router %d: %d\n", current_router->id, dist[current_router->dist_idx]);
                 }
                 current_neighbour = current_neighbour->next;
             }
@@ -81,11 +83,6 @@ void bellman_ford(router* router_list, router* src)
     current = router_list; 
     while (current != NULL)
     {
-        // router* temp = current; 
-        // while (next_hop[temp->dist_idx] != src->id)
-        // {
-        //     temp = get_router(next_hop[temp->dist_idx], router_list);
-        // }
         fprintf(stdout, "%d \t\t %d \t\t %d\n", current->id, next_hop[current->dist_idx], dist[current->dist_idx]);
         current = current->next; 
     }
@@ -112,6 +109,109 @@ void init_tables_entries(router* router_list)
     }
 }
 
+// transmit the new vector change to all neighbours of the src; recursive wrapper for propogating vector changes
+static void advertise_change(router* src, table_entry* updated_src_vector)
+{
+    neighbour_entry* current_neighbour = src->neighbour_list;
+    while (current_neighbour != NULL) 
+    {
+        // find the neighbour table entry that corresponds to the updated vector
+        table_entry* current_vector = current_neighbour->router_neighbour->table_head;
+        while (current_vector != NULL)
+        {
+            if (current_vector->dest == updated_src_vector->dest)
+            {
+                fprintf(stdout, "\nAdvertising to router %d\n", current_neighbour->id);
+                compare_vector(current_neighbour->router_neighbour, updated_src_vector, src->id, current_neighbour->path_cost);
+                break; 
+            }
+            current_vector = current_vector->next;
+        }
+        current_neighbour = current_neighbour->next;
+    }
+}
+
+// determine if a better path is advertised to the src; if so, update the src routing table and recursively advertise the change to all neighbours
+void compare_vector(router* src, table_entry* neighbour_vector, int neighbour_id, int cost_to_neighbour)
+{
+    // SPLIT HORIZON: should not advertise routes back to the router that sent it
+    // in simulation, do not accept routes from the neighbour that has the src as the next hop 
+    if (neighbour_vector->dest == src->id)
+    {
+        // ignore this advertisement
+        fprintf(stdout, "\nIgnoring route to router %d from router %d\n", neighbour_vector->dest, neighbour_id);
+        return; 
+    }
+
+    fprintf(stdout, "\nComparing vector from router %d: dest %d, next hop %d, cost %d\n", neighbour_id, neighbour_vector->dest, neighbour_vector->next_hop, neighbour_vector->path_cost);
+
+    // look for the destination in the src table 
+    table_entry* current_vector = src->table_head; 
+    while (current_vector != NULL)
+    { 
+        fprintf(stdout, "current route to %d\n", current_vector->dest);
+        if (current_vector->dest == neighbour_vector->dest)
+        {
+            // neighbour is the current next hop to the dest 
+            if (current_vector->next_hop == neighbour_id)
+            {
+                fprintf(stdout, "Old route to router %d from router %d with cost %d\n", neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
+                // replace current route with neighbours route 
+                int old_cost = current_vector->path_cost;
+                current_vector->path_cost = neighbour_vector->path_cost + cost_to_neighbour;
+                fprintf(stdout, "New route to router %d from router %d with cost %d\n", neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
+                
+                // only advertise if the cost has changed
+                if (current_vector->path_cost != old_cost)
+                {
+                    advertise_change(src, current_vector);
+                }
+            }
+            // neighbours' advertised distance is better than current distance to dest
+            else if (neighbour_vector->path_cost + cost_to_neighbour < current_vector->path_cost)
+            {
+                fprintf(stdout, "Old route to router %d from router %d with cost %d\n", neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
+                current_vector->path_cost = neighbour_vector->path_cost + cost_to_neighbour;
+                current_vector->next_hop = neighbour_id;
+                fprintf(stdout, "Updating route to router %d from router %d with cost %d\n", neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
+                advertise_change(src, current_vector);
+            }
+            else 
+            {
+                fprintf(stdout, "No change to route to router %d from router %d with cost %d\n", neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
+            }
+            return; 
+        }
+        current_vector = current_vector->next;
+    }
+    
+    // dest not found in the src table, so add the new route  
+    fprintf(stdout, "Adding new route to router %d from router %d with cost %d\n", neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
+    add_table_entry(src, neighbour_vector->dest, neighbour_id, neighbour_vector->path_cost + cost_to_neighbour);
+    table_entry* new_src_vector = get_routing_table_next_hop(src, neighbour_vector->dest);
+    advertise_change(src, new_src_vector);
+    return; 
+}
+
+// simulates the src router receiving a message from a direct neighbour (assumes the messages are sent immediately after initial table setup)
+void receive_pseudo_ads(router* src)
+{
+    // each neighbour sends its routing table entries to the src
+    neighbour_entry* current_neighbour = src->neighbour_list;
+    while (current_neighbour != NULL)
+    {
+        // process each vector entry from the neighbour
+        table_entry* current_vector = current_neighbour->router_neighbour->table_head;  
+        while (current_vector != NULL)
+        {
+            // compare with vectors in case we need to update the current route
+            compare_vector(src, current_vector, current_neighbour->id, current_neighbour->path_cost);
+            current_vector = current_vector->next;
+        }
+        current_neighbour = current_neighbour->next;
+    }
+}
+
 void distance_vector(char* topologyFile, char* messageFile, char* changesFile, char* outputFile)
 {
     (void)topologyFile;
@@ -119,18 +219,24 @@ void distance_vector(char* topologyFile, char* messageFile, char* changesFile, c
     (void)changesFile;
     (void)outputFile;
 
-    router* router_list = init_routers(topologyFile);
-    // init_tables_entries(router_list);
+    // establish graph nodes and links 
+    router* graph = init_routers(topologyFile);
 
-    // router* current = router_list;
-    // while (current != NULL) 
-    // {
-    //     bellman_ford(router_list, current);
-    //     current = current->next;
-    // }
-    bellman_ford(router_list, get_router(1, router_list));
-    write_tables_output(router_list, outputFile);
-    send_message(messageFile, outputFile, router_list);
+    // initialize routing tables with only direct neighbour entries
+    init_tables_entries(graph);
+    
+    // routing table changes begin by receiving initial vectors from neighbours
+    // assumes that the neighbours advertise their vectors immediately after the tables are initialized
+    router* current = graph; 
+    while (current != NULL)
+    {
+        // begin propogating initial vectors to all neighbours
+        receive_pseudo_ads(current);
+        current = current->next;
+    }
+ 
+    write_tables_output(graph, outputFile);
+    send_message(messageFile, outputFile, graph);
 }
 
 int main(int argc, char** argv)
