@@ -257,7 +257,7 @@ void link_state(char* topologyFile, char* messageFile, char* changesFile, char* 
         current = current->next;
     }
 
-    // write tables for initial convergence 
+    // write tables for initial convergence after dijkstras
     fprintf(stdout, "\nWRITING TABLES TO %s\n\n", outputFile); 
     write_tables_output(router_list, outputFile);
 

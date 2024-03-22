@@ -5,10 +5,10 @@
 #include <sys/types.h>
 #include "../lib/router.h"
 
-// source router advertisement 
+// compute routing table entries for src router 
 void bellman_ford(router* router_list, router* src)
 {
-    fprintf(stdout, "BELLMAN FORD\n"); 
+    fprintf(stdout, "\nBELLMAN FORD on router %d\n", src->id); 
 
     // find number of routers 
     int num_routers = 0;
@@ -19,7 +19,7 @@ void bellman_ford(router* router_list, router* src)
         current = current->next;
     }
 
-    // initialize distance array 
+    // initialize distance from src array 
     int* dist = (int*)malloc(sizeof(int) * num_routers);
     if (dist == NULL)
     {
@@ -41,60 +41,52 @@ void bellman_ford(router* router_list, router* src)
     while (current != NULL)
     {
         current->dist_idx = i;
+        // src distance to itself is 0
         if (current->id == src->id)
         {
             dist[i] = 0;
-            next_hop[i] = -1; 
         }
         else 
         {
             dist[i] = INT_MAX;
-            next_hop[i] = -1;
         }
+        next_hop[i] = -1; 
         current = current->next;
         i++; 
     }
 
-    // current = router_list; 
-    // while (current != NULL)
-    // {
-    //     neighbour_entry* neighbour = current->neighbour_list; 
-    //     while (neighbour != NULL)
-    //     {
-    //         if (neighbour->path_cost + dist[current->dist_idx] < dist[neighbour->router_neighbour->dist_idx])
-    //         {
-    //             dist[neighbour->router_neighbour->dist_idx] = neighbour->path_cost + dist[current->dist_idx];
-    //             next_hop[neighbour->router_neighbour->dist_idx] = current->id;
-    //         }
-    //         neighbour = neighbour->next;
-    //     }
-    //     current = current->next;
-    // }
-
-    // current = router_list; 
-    // while (current != NULL)
-    // {
-    //     neighbour_entry* neighbour = current->neighbour_list; 
-    //     while (neighbour != NULL)
-    //     {
-    //         if (neighbour->path_cost + dist[neighbour->router_neighbour->dist_idx] < dist[current->dist_idx])
-    //         {
-    //             dist[current->dist_idx] = neighbour->path_cost + dist[neighbour->router_neighbour->dist_idx];
-    //             next_hop[current->dist_idx] = neighbour->id;
-    //         }
-    //         neighbour = neighbour->next;
-    //     }
-    //     current = current->next;
-    // }
+    // exchange routing information 
+    for (int i = 0; i < num_routers; i++)
+    {
+        router* current_router = router_list; 
+        while (current_router != NULL)
+        {
+            neighbour_entry* current_neighbour = current_router->neighbour_list;
+            while (current_neighbour != NULL)
+            {
+                if (dist[current_neighbour->router_neighbour->dist_idx] != INT_MAX && dist[current_neighbour->router_neighbour->dist_idx] + current_neighbour->path_cost < dist[current_router->dist_idx])
+                {
+                    dist[current_router->dist_idx] = dist[current_neighbour->router_neighbour->dist_idx] + current_neighbour->path_cost;
+                    next_hop[current_router->dist_idx] = current_neighbour->id;
+                    // fprintf(stdout, "Updated distance to router %d: %d\n", current_router->id, dist[current_router->dist_idx]);
+                }
+                current_neighbour = current_neighbour->next;
+            }
+            current_router = current_router->next;
+        }
+    }
 
     // update the routing table entries
+    fprintf(stdout, "Dest \t\t Next \t\t Distance from Source\n"); 
     current = router_list; 
     while (current != NULL)
     {
-        if (dist[current->dist_idx] != INT_MAX)
-        {
-            add_table_entry(src, current->id, next_hop[current->dist_idx], dist[current->dist_idx]);
-        }
+        // router* temp = current; 
+        // while (next_hop[temp->dist_idx] != src->id)
+        // {
+        //     temp = get_router(next_hop[temp->dist_idx], router_list);
+        // }
+        fprintf(stdout, "%d \t\t %d \t\t %d\n", current->id, next_hop[current->dist_idx], dist[current->dist_idx]);
         current = current->next; 
     }
 }
@@ -128,7 +120,7 @@ void distance_vector(char* topologyFile, char* messageFile, char* changesFile, c
     (void)outputFile;
 
     router* router_list = init_routers(topologyFile);
-    init_tables_entries(router_list);
+    // init_tables_entries(router_list);
 
     // router* current = router_list;
     // while (current != NULL) 

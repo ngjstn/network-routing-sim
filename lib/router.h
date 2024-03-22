@@ -18,7 +18,7 @@ typedef struct table_entry
 typedef struct router
 {
     int id; 
-    int dist_idx; // distance from source (used to index dist array in djikstras alg.)
+    int dist_idx; // distance from source (used to index dist array in bellman ford and djikstras)
     // int pos_idx; 
     table_entry* table_head;
     struct neighbour_entry* neighbour_list;    // used for traversing the graph
