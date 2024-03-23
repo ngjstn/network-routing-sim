@@ -357,7 +357,7 @@ void distance_vector(char* topologyFile, char* messageFile, char* changesFile, c
     router* current = graph; 
     while (current != NULL)
     {
-        // begin propogating initial vectors to all neighbours
+        // start propogation by receiving ads from neighbours at a trivial starting router
         receive_pseudo_ads(current);
         current = current->next;
     }

@@ -35,58 +35,36 @@ void dijkstras(router* router_list, router* src)
 
     fprintf(stdout, "\nDIJKSTRAS on src router %d\n", src->id);
 
-    // initialize min heap
+    // min heap for unprocessed router distances
     min_heap* heap = create_min_heap(num_routers);
 
+    // initialize heap and array values to prep for dijkstras 
     current = router_list;
     int i = 0;
     while (current != NULL)
     {
         current->dist_idx = i;
-        // current->pos_idx = i;
         heap->pos[i] = i;
 
+        // src router starts with 0 distance and is the root node of the min heap
         if (current->id == src->id)
         {
             prev[i] = src->id; 
             dist[i] = 0; 
             heap->array[i] = create_min_heap_node(current->id, dist[i]);
-            // fprintf(stdout, "heap->array[0]: %d\n", heap->array[0]->dist);
-            // fprintf(stdout, "heap->array[%d]: %d\n", i, heap->array[i]->dist);
-            // fprintf(stdout, "router index 0: %d\n", get_router(heap->array[0]->v, router_list)->id);
             decrease_key(heap, i, dist[i], router_list);
-            // fprintf(stdout, "heap->array[0]: %d\n", heap->array[0]->dist);
-            // fprintf(stdout, "heap->array[%d]: %d\n", i, heap->array[i]->dist);
-            // fprintf(stdout, "router index 0: %d\n", get_router(heap->array[0]->v, router_list)->id);
         }
+        // all other routers start with infinite distance 
         else 
         {
             dist[i] = INT_MAX;
             prev[i] = -1;
             heap->array[i] = create_min_heap_node(current->id, dist[i]);
         }
-
         i++; 
-        // fprintf(stdout, "router id: %d assigned dist_idx: %d\n", current->id, current->dist_idx);
         current = current->next;
     }
-
-    // print out heap array 
-    // fprintf(stdout, "heap array: \n");
-    // for (int i = 0; i < num_routers; i++)
-    // {
-    //     fprintf(stdout, "router id: %d, dist: %d\n", heap->array[i]->v, heap->array[i]->dist);
-    // }
-
-    // set distance to source as 0 and update heap
-    // heap->array[num_routers-1] = create_min_heap_node(src->id, dist[num_routers-1]);
-    // heap->pos[num_routers-1] = num_routers-1;
-    // get_router(src->id, router_list)->dist_idx = num_routers-1;
-    // dist[num_routers-1] = 0;
-    // decrease_key(heap, num_routers-1, dist[num_routers-1]);
     heap->size = num_routers;
-
-    // fprintf(stdout, "heap size: %d\n", heap->size);
 
     // heap contains all routers with undetermined shortest distance from src
     while (!is_empty(heap))
@@ -100,17 +78,11 @@ void dijkstras(router* router_list, router* src)
         neighbour_entry* neighbour = get_router(extracted, router_list)->neighbour_list;
         while (neighbour != NULL)
         {
-            // fprintf(stdout, "\nneighbour of router %d: %d\n", heap_node->v, neighbour->id);
             int neighbour_dist_idx = neighbour->router_neighbour->dist_idx; 
-            // fprintf(stdout, "dist_idx of neighbour: %d\n", neighbour_dist_idx);
-            // fprintf(stdout, "dist[ext_dist]: %d, neighbour->path_cost: %d, dist[neighbour_dist_idx]: %d\n", dist[ext_dist], neighbour->path_cost, dist[neighbour_dist_idx]);
-            // fprintf(stdout, "is_in_heap: %d\n", is_in_heap(heap, neighbour_dist_idx));
-
             if (!is_in_heap(heap, neighbour_dist_idx) && dist[ext_dist] != INT_MAX && (neighbour->path_cost + dist[ext_dist]) <= dist[neighbour_dist_idx])
             {
                 if (neighbour->router_neighbour->id > extracted && neighbour->path_cost + dist[ext_dist] == dist[neighbour_dist_idx])
                 {
-                    // dist[neighbour_dist_idx] = dist[ext_dist];
                     prev[neighbour_dist_idx] = extracted;
                 }
                 else 
@@ -118,8 +90,6 @@ void dijkstras(router* router_list, router* src)
                     dist[neighbour_dist_idx] = dist[ext_dist] + neighbour->path_cost; 
                     prev[neighbour_dist_idx] = heap_node->v;
                 }
-
-                // fprintf(stdout, "updated dist[%d]: %d\n", neighbour_dist_idx, dist[neighbour_dist_idx]);
                 decrease_key(heap, neighbour_dist_idx, dist[neighbour_dist_idx], router_list);
             }
             neighbour = neighbour->next;
@@ -144,7 +114,7 @@ void dijkstras(router* router_list, router* src)
         current = current->next;
     }
 
-    // dealloc arrays after data is copied into routing table entries
+    // dealloc arrays after data is updated into routing table entries
     free(dist);
     free(prev);
 }
@@ -217,23 +187,6 @@ void process_change_topology(char* messageFile, char* changesFile, char* outputF
             }
         }
 
-        // fprintf(stdout, "\nUPDATED ROUTER LIST TOPOLOGY\n");
-        // fprintf(stdout, "router_list: %p\n", router_list);
-        // router* current = router_list;
-        // while (current != NULL)
-        // {
-        //     fprintf(stdout, "router id: %d\n", current->id);
-
-        //     // print out neighbour list 
-        //     neighbour_entry* neighbour = current->neighbour_list;
-        //     while (neighbour != NULL)
-        //     {
-        //         fprintf(stdout, "---> neighbour id: %d, path_cost: %d\n", neighbour->id, neighbour->path_cost);
-        //         neighbour = neighbour->next;
-        //     }
-        //     current = current->next;
-        // }
-
         // run dijkstra's algorithm on all routers to update tables
         router* current = router_list;
         while (current != NULL)
@@ -242,6 +195,7 @@ void process_change_topology(char* messageFile, char* changesFile, char* outputF
             current = current->next;
         }
 
+        // write to output file after convergence
         write_tables_output(router_list, outputFile); 
         send_message(messageFile, outputFile, router_list);
     }
@@ -249,25 +203,24 @@ void process_change_topology(char* messageFile, char* changesFile, char* outputF
 
 void link_state(char* topologyFile, char* messageFile, char* changesFile, char* outputFile)
 {
-    // list of all routers
+    // establish graph nodes and links (initial state)
+    // the graph itself represents any routers' global view of the network topology
     router* graph = init_routers(topologyFile);
+
+    // determine shortest path route from one router to every other router in the network 
     router* current = graph;
-    current = graph; 
     while (current != NULL)
     {
+        // route calculation and table entry updates
         dijkstras(graph, current);
         current = current->next;
     }
 
-    // write tables for initial convergence after dijkstras
-    fprintf(stdout, "\nWRITING TABLES TO %s\n\n", outputFile); 
+    // update output file after convergence
     write_tables_output(graph, outputFile);
-
-    // write messages for initial convergence 
-    fprintf(stdout, "WRITING MESSAGES TO %s\n\n", outputFile);
     send_message(messageFile, outputFile, graph);
 
-    // process all changes
+    // begin applying changes to the graph topology
     process_change_topology(messageFile, changesFile, outputFile, graph);
 }
 

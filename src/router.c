@@ -12,31 +12,28 @@ void heapify(min_heap* minHeap, int idx, router* router_list)
     left = 2 * idx + 1;
     right = 2 * idx + 2;
  
-    if (left < minHeap->size &&
-        minHeap->array[left]->dist < 
-         minHeap->array[smallest]->dist )
+    if (left < minHeap->size && minHeap->array[left]->dist < minHeap->array[smallest]->dist)
+    {
       smallest = left;
+    }
  
-    if (right < minHeap->size &&
-        minHeap->array[right]->dist <
-         minHeap->array[smallest]->dist )
+    if (right < minHeap->size && minHeap->array[right]->dist < minHeap->array[smallest]->dist)
+    {
       smallest = right;
+    }
  
     if (smallest != idx)
     {
         // The nodes to be swapped in min heap
-        min_heap_node *smallestNode = 
-             minHeap->array[smallest];
-        min_heap_node *idxNode = 
-                 minHeap->array[idx];
+        min_heap_node *smallestNode = minHeap->array[smallest];
+        min_heap_node *idxNode = minHeap->array[idx];
  
         // Swap positions
         minHeap->pos[get_router(smallestNode->v, router_list)->dist_idx] = idx;
         minHeap->pos[get_router(idxNode->v, router_list)->dist_idx] = smallest;
  
         // Swap nodes
-        swap_heap_node(&minHeap->array[smallest], 
-                         &minHeap->array[idx]);
+        swap_heap_node(&minHeap->array[smallest], &minHeap->array[idx]);
  
         heapify(minHeap, smallest, router_list);
     }
@@ -45,15 +42,15 @@ void heapify(min_heap* minHeap, int idx, router* router_list)
 min_heap_node* extract_min(min_heap* minHeap, router* router_list)
 {
     if (is_empty(minHeap))
+    {
         return NULL;
- 
+    }
+
     // Store the root node
-    min_heap_node* root = 
-                   minHeap->array[0];
+    min_heap_node* root = minHeap->array[0];
  
     // Replace root node with last node
-    min_heap_node* lastNode = 
-         minHeap->array[minHeap->size - 1];
+    min_heap_node* lastNode = minHeap->array[minHeap->size - 1];
     minHeap->array[0] = lastNode;
  
     // Update position of last node
@@ -71,28 +68,17 @@ void decrease_key(min_heap* minHeap, int v, int dist, router* router_list)
 {
     // Get the index of v in  heap array
     int i = minHeap->pos[v];
-    // fprintf(stdout, "i: %d\n", i);
-    // fprintf(stdout, "v: %d\n", v);
 
-    // Get the node and update its dist value
+    // get the node and update its dist value
     minHeap->array[i]->dist = dist;
  
-    // Travel up while the complete 
-    // tree is not heapified.
-    // This is a O(Logn) loop
-    while (i && minHeap->array[i]->dist < 
-           minHeap->array[(i - 1) / 2]->dist)
+    // travel up while the complete tree is not heapified.
+    while (i && minHeap->array[i]->dist < minHeap->array[(i - 1) / 2]->dist)
     {
-        // fprintf(stdout, "swap 1: %d\n", minHeap->array[i]->v);
-        // fprintf(stdout, "swap 2: %d\n", minHeap->array[(i-1)/2]->v);
         // Swap this node with its parent
         minHeap->pos[get_router(minHeap->array[i]->v, router_list)->dist_idx] = (i-1)/2;
         minHeap->pos[get_router(minHeap->array[(i-1)/2]->v, router_list)->dist_idx] = i;
-        swap_heap_node(&minHeap->array[i],  
-                 &minHeap->array[(i - 1) / 2]);
-
-        // fprintf(stdout, "swap 1: %d\n", minHeap->array[i]->v);
-        // fprintf(stdout, "swap 2: %d\n", minHeap->array[(i-1)/2]->v);
+        swap_heap_node(&minHeap->array[i], &minHeap->array[(i - 1) / 2]);
 
         // move to parent index
         i = (i - 1) / 2;
@@ -111,10 +97,8 @@ void destroy_all_routing_tables(router* router_list)
         {
             table_entry* temp = current_entry;
             current_entry = current_entry->next;
-            // fprintf(stdout, "current_entry: %p\n", current_entry);
             free(temp);
         }
-        // fprintf(stdout, "Router %d table head: %p\n", current->id, current_entry);
         current->table_head = NULL;
         current = current->next;
     }
@@ -123,7 +107,6 @@ void destroy_all_routing_tables(router* router_list)
     current = router_list;
     while (current != NULL)
     {
-        // fprintf(stdout, "Router %d table head: %p\n", current->id, current->table_head);
         if (current->table_head != NULL)
         {
             fprintf(stderr, "Error: Routing table for router %d not deallocated\n", current->id);
@@ -132,7 +115,6 @@ void destroy_all_routing_tables(router* router_list)
         current = current->next;
     }
 }
-
 
 // used for creating a table entry struct
 table_entry* create_table_entry(int dest, int next_hop, int path_cost)
@@ -146,12 +128,12 @@ table_entry* create_table_entry(int dest, int next_hop, int path_cost)
     entry->dest = dest;
     entry->next_hop = next_hop;
     entry->path_cost = path_cost;
-    // entry->ttl = ttl;
     entry->next = NULL;
 
     return entry;
 }
 
+// returns the table entry for dest found in the src router's table 
 table_entry* get_routing_table_next_hop(router* src_router, int dest)
 {
     table_entry* current = src_router->table_head;
@@ -159,8 +141,6 @@ table_entry* get_routing_table_next_hop(router* src_router, int dest)
     {
         if (current->dest == dest)
         {
-            
-            // fprintf(stdout, "dest: %d, next_hop: %d, path_cost: %d\n", current->dest, current->next_hop, current->path_cost);
             return current;
         }
         current = current->next;
@@ -225,6 +205,7 @@ static neighbour_entry* create_neighbour_entry(router* router, int id, int path_
     return neighbour;
 }
 
+// remove a neighbour entry node from router's neighbour linked list
 void remove_neighbour_entry(router* router, int remove_id)
 {
     // remove from neighbour linked list 
@@ -257,6 +238,7 @@ void remove_neighbour_entry(router* router, int remove_id)
     }
 }
 
+// return the adjacent neighbour router pointer found by id
 router* get_neighbour(router* router, int id)
 {
     neighbour_entry* current = router->neighbour_list;
@@ -264,7 +246,6 @@ router* get_neighbour(router* router, int id)
     {
         if (current->id == id)
         {
-            // fprintf(stdout, "neighbour id: %d, path_cost: %d\n", current->id, current->path_cost);
             return current->router_neighbour;
         }
         current = current->next;
@@ -273,6 +254,7 @@ router* get_neighbour(router* router, int id)
     return NULL;
 }
 
+// adds a neighbour entry to the router's neighbour linked list in ascending order of id
 void add_neighbour_entry(router* router, neighbour_entry* neighbour)
 {
     neighbour_entry* current = router->neighbour_list;
@@ -311,7 +293,7 @@ void add_neighbour_entry(router* router, neighbour_entry* neighbour)
 }
 
 
-// makes the 2 routers neighbours of each other; used in initial topology setup
+// creates a traversable link between the 2 routers in the graph topology
 void set_neighbour_link(router* router1, router* router2, int id1, int id2, int path_cost)
 {
     neighbour_entry* neighbour_id1 = create_neighbour_entry(router1, id1, path_cost);
@@ -321,7 +303,7 @@ void set_neighbour_link(router* router1, router* router2, int id1, int id2, int 
     add_neighbour_entry(router2, neighbour_id1);
 }
 
-// used to get a router pointer by id 
+// returns a router found by id in the router graph topology 
 router* get_router(int id, router* router_list)
 {
     if (router_list == NULL)
@@ -343,6 +325,7 @@ router* get_router(int id, router* router_list)
     return NULL;
 }
 
+// creates a new router struct with the given id
 router* create_router(int id)
 {
     router* new_router = (router*)malloc(sizeof(router));
@@ -358,7 +341,7 @@ router* create_router(int id)
     return new_router;
 }
 
-// adds router to routing list graph in ascending order of id
+// adds a router to the routing list graph in ascending order of id
 router* add_router(router* router_list, router* new_router)
 {
     router* current = router_list;
@@ -397,8 +380,7 @@ router* add_router(router* router_list, router* new_router)
     return router_list; 
 }
 
-
-// initializes the router linked list with the routers and their neighbours
+// initializes the router adjacency linked list with the routers and their linked neighbours
 router* init_routers(char* topologyFile)
 {
     FILE* file = fopen(topologyFile, "r");
@@ -414,22 +396,18 @@ router* init_routers(char* topologyFile)
     }
 
     // each line in the topologyFile is a link between 2 routers
-    // fprintf(stdout, "CREATING ROUTER TOPOLOGY\n");
     while ((read = getline(&line, &len, file)) != -1)
     {
         char* id1 = strtok(line, " "); 
         char* id2 = strtok(NULL, " ");
         char* path_cost = strtok(NULL, " ");
-        // printf("LINE -> id1: %s, id2: %s, path_cost: %s\n", id1, id2, path_cost);
 
         // router list is empty
         if (router_list == NULL)
         {
             // create a router for id1 and set it to router_list (head of linked list)
             router* router1 = create_router(atoi(id1)); 
-            // fprintf(stdout, "created router %p, id: %d\n", router1, router1->id);
             router* router2 = create_router(atoi(id2));
-            // fprintf(stdout, "created router %p, id: %d\n\n", router2, router2->id);
             set_neighbour_link(router1, router2, atoi(id1), atoi(id2), atoi(path_cost));
 
             // set router1 as the head of the list; place router2 after router1 (end of linked list)
@@ -471,18 +449,12 @@ router* init_routers(char* topologyFile)
             if (!found1)
             {
                 router1 = create_router(atoi(id1));
-                // router1->next = current;
-                // router_list = router1;
                 router_list = add_router(router_list, router1);
-                // fprintf(stdout, "created router %p, id: %d\n", router1, router1->id);
             }
             if (!found2)
             {
                 router2 = create_router(atoi(id2));
-                // router2->next = current;
-                // router_list = router2;
                 router_list = add_router(router_list, router2);
-                // fprintf(stdout, "created router %p, id: %d\n", router2, router2->id);
             }
             
             // routers should be found or created by this point
@@ -492,7 +464,6 @@ router* init_routers(char* topologyFile)
                 exit(1);
             }
             set_neighbour_link(router1, router2, atoi(id1), atoi(id2), atoi(path_cost));
-            // fprintf(stdout, "\n");
         }
     }
     fclose(file);
@@ -515,10 +486,10 @@ router* init_routers(char* topologyFile)
         current = current->next;
     }
 
-    // fprintf(stdout, "router_list: %p\n", router_list);
     return router_list;
 }
 
+// writes a message to the output file
 void write_message_output(char *outputFile, char *message)
 {
     FILE *file = fopen(outputFile, "a");
@@ -535,7 +506,7 @@ void write_message_output(char *outputFile, char *message)
     fclose(file);
 }
 
-// updates the output file with ALL the routing tables in the routing_list 
+// updates the output file with ALL the routing tables in the routing_list; call after convergence
 void write_tables_output(router* routing_list, char* outputFile)
 {
     FILE* file = fopen(outputFile, "a+");
@@ -570,7 +541,7 @@ void write_tables_output(router* routing_list, char* outputFile)
     fclose(file);
 }
 
-// sends a message using only the routing tables
+// sends a message using only the routing table entries; call after convergence
 void send_message(char* messageFile, char* outputFile, router* router_list)
 {
     FILE* file = fopen(messageFile, "r");
@@ -689,7 +660,6 @@ void send_message(char* messageFile, char* outputFile, router* router_list)
                     sprintf(buffer + strlen(buffer), "%d ", hops[i]);
                 }
             }
-
             sprintf(buffer + strlen(buffer), "message %s", message);
         }
 

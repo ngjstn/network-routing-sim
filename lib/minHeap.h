@@ -1,3 +1,8 @@
+/*
+ * The following code related to the min heap structure was adopted from the geeksforgeeks website
+ * source: https://www.geeksforgeeks.org/dijkstras-algorithm-for-adjacency-list-representation-greedy-algo-8/
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

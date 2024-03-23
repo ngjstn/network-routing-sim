@@ -23,7 +23,7 @@ typedef struct router
     int dist_idx;                              // distance from source (used to index dist array in bellman ford and dijkstras)
     table_entry* table_head;
     struct neighbour_entry* neighbour_list;    // used for traversing the graph through directly connected routers
-    struct router* next;                       // ONLY used for initial graph representation; not used for graph traversal or routing table computation 
+    struct router* next;                       // used for link-state dijkstras global network view; NOT used/exposed in the distance-vector core logic 
 } router;
 
 // node for neighbour linked list stored in each router; represents an adjacent node in the graph
