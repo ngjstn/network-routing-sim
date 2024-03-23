@@ -19,7 +19,7 @@ minHeap: obj/minHeap.obj.o
 
 clean :
 	$(RM) obj/*.o distancevector linkstate router minHeap
-
+	$(RM) output.txt
 
 obj/%.o: src/%.c
 	$(CC) $(COMPILERFLAGS) -c -o $@ $<

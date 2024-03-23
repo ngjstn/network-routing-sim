@@ -225,8 +225,8 @@ void receive_pseudo_ads(router* src)
     }
 }
 
-// poison the hops that go through the broken link dest_id 
-void link_break_poison_ad(router* src_router, int dest_id)
+// poison the hops that go through the updated link dest_id 
+void link_update_ad(router* src_router, int dest_id, int new_cost)
 {
     // poison src table entries that have next hop as dest
     fprintf(stdout, "\nPoisoning routes to router %d\n", dest_id);
@@ -235,8 +235,9 @@ void link_break_poison_ad(router* src_router, int dest_id)
     {
         if (current_vector->next_hop == dest_id)
         {
-            current_vector->path_cost = INT_MAX;
+            current_vector->path_cost = new_cost;
             advertise_change(src_router, current_vector);
+            receive_pseudo_ads(src_router);
         }
         current_vector = current_vector->next;
     }
@@ -287,9 +288,9 @@ void process_change_topology(char* messageFile, char* changesFile, char* outputF
             remove_neighbour_entry(src_router, dest_id);
             remove_neighbour_entry(dest_router, src_id);
 
-            // poison the hops that go through the broken link dest_id
-            link_break_poison_ad(src_router, dest_id);
-            link_break_poison_ad(dest_router, src_id);
+            // poison the hops that go through the broken link by setting the cost to infinity
+            link_update_ad(src_router, dest_id, INT_MAX);
+            link_update_ad(dest_router, src_id, INT_MAX);
 
             // receive new ads after poison to update routing table shortest paths 
             fprintf(stdout, "\n\nAFTER POISON ADVERTISEMENT\n");
@@ -310,18 +311,31 @@ void process_change_topology(char* messageFile, char* changesFile, char* outputF
                 remove_neighbour_entry(src_router, dest_id);
                 remove_neighbour_entry(dest_router, src_id);
                 set_neighbour_link(src_router, dest_router, src_id, dest_id, cost);
+                
+                // update next hop paths that were affected by the link change
+                link_update_ad(src_router, dest_id, cost); 
+                link_update_ad(dest_router, src_id, cost);
             }
             // neighbour link doesn't exist
             else
             {
                 fprintf(stdout, "Adding link between %d and %d\n", src_id, dest_id);
                 set_neighbour_link(src_router, dest_router, src_id, dest_id, cost); 
+
+                // propogate the change to all neighbours of the src and dest routers 
+                advertise_change(src_router, get_routing_table_next_hop(src_router, dest_id));
+                advertise_change(dest_router, get_routing_table_next_hop(dest_router, src_id));
+                // receive_pseudo_ads(src_router); 
+                // receive_pseudo_ads(dest_router);
             }
-            // propogate the change to all neighbours of the src and dest routers 
-            advertise_change(src_router, get_routing_table_next_hop(src_router, dest_id));
-            advertise_change(dest_router, get_routing_table_next_hop(dest_router, src_id));
-            receive_pseudo_ads(src_router); 
-            receive_pseudo_ads(dest_router);
+
+            // receive new ads to update routing table shortest paths
+            router* current = router_list; 
+            while (current != NULL) 
+            {
+                receive_pseudo_ads(current);
+                current = current->next;
+            }
         }
 
         // update output file after convergence 
